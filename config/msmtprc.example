@@ -1,0 +1,21 @@
+# ==========================================================
+# SentinelOps - msmtp example configuration
+# File in production: /etc/msmtprc
+# Do not commit real credentials.
+# ==========================================================
+
+defaults
+auth           on
+tls            on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+syslog         LOG_MAIL
+
+account        smtp_provider
+host           smtp.example.com
+port           465
+tls_starttls   off
+from           alerts@example.com
+user           alerts@example.com
+password       CHANGE_ME
+
+account default : smtp_provider

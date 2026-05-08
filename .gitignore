@@ -1,0 +1,26 @@
+# Secrets and production configs
+.env
+*.env
+*.secret
+*.key
+*.pem
+msmtprc
+msmtprc.production
+/etc/msmtprc
+production.local/
+secrets/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+*.tmp
+*.swp
+*~
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/

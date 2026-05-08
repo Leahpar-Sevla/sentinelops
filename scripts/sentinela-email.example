@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+DESTINATION="${1:-}"
+SUBJECT="${2:-}"
+SENDER="alerts@example.com"
+CURRENT_HOSTNAME="$(hostname)"
+
+if [ -z "$DESTINATION" ] || [ -z "$SUBJECT" ]; then
+  echo "Usage: sentinela-email destination@example.com \"Email subject\""
+  exit 1
+fi
+
+BODY="$(cat)"
+
+{
+  echo "Subject: ${SUBJECT}"
+  echo "From: SentinelOps <${SENDER}>"
+  echo "To: ${DESTINATION}"
+  echo "Content-Type: text/plain; charset=UTF-8"
+  echo
+  echo "Server: ${CURRENT_HOSTNAME}"
+  echo
+  echo "${BODY}"
+} | msmtp -a default "$DESTINATION"
