@@ -1,0 +1,9 @@
+# SentinelOps - Phase 3 Heartbeat Runner
+# Check name standard: SENTINELOPS-[CLIENTE]-[HOSTNAME]-HEARTBEAT
+# Default schedule: every 1 hour at minute 05
+# Healthchecks: Period 1 hour, Grace Time 15 minutes
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+5 * * * * root /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh >> /var/log/sentinelops/heartbeat-cron.log 2>&1

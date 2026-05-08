@@ -1,57 +1,32 @@
 # ==========================================================
-# SentinelOps - Configuration Example
+# SentinelOps - Local Server Configuration Example
 # ==========================================================
 # Copy to: /etc/sentinelops/sentinelops.conf
-# Do not commit real recipients, private domains or credentials.
+# Permissions:
+#   sudo chown root:root /etc/sentinelops/sentinelops.conf
+#   sudo chmod 600 /etc/sentinelops/sentinelops.conf
+#
+# Do not commit the real file with real secrets.
 
-WARNING_RECIPIENT="support@example.com"
-HIGH_RECIPIENT="support@example.com"
-CRITICAL_RECIPIENT="manager@example.com"
-CRITICAL_CC_RECIPIENT="support@example.com"
-
-ALERT_COMMAND="/usr/local/bin/sentinela-email"
-
-SERVER_NAME="$(hostname)"
+# -----------------------------
+# Existing SentinelOps settings
+# -----------------------------
 ENVIRONMENT="lab"
+CLIENTE="TESTE"
+HOSTNAME_PADRAO="$(hostname)"
 
-DISK_WARNING_PERCENT=80
-DISK_HIGH_PERCENT=90
-DISK_CRITICAL_PERCENT=95
+# Existing SentinelOps check command.
+SENTINELA_SCRIPT="/usr/local/bin/sentinelops-check"
 
-ROOT_CRITICAL_PERCENT=90
-VAR_CRITICAL_PERCENT=90
+# -----------------------------
+# Phase 3 - Heartbeat / Dead Man's Switch
+# -----------------------------
+# Healthchecks Ping URL for this specific server.
+# This is a secret. Replace this placeholder on the server only.
+HEALTHCHECKS_URL="https://hc-ping.com/REPLACE_WITH_SERVER_UUID"
 
-INODE_WARNING_PERCENT=80
-INODE_HIGH_PERCENT=90
-INODE_CRITICAL_PERCENT=95
+# Local heartbeat audit log.
+HEARTBEAT_LOG="/var/log/sentinelops/heartbeat.log"
 
-BACKUP_MODE="backup-jobs"
-BACKUP_JOBS_CONF="/etc/sentinelops/backup_jobs.conf"
-
-BACKUP_SCHEDULE_HOUR=3
-BACKUP_GRACE_HOURS=2
-BACKUP_FOLDER_DATE_FORMAT="%Y-%m-%d"
-
-BACKUP_FINAL_PATH="/mnt/so-backup-active/backups"
-BACKUP_TEMP_PATH="/mnt/so-data/backup-temp"
-BACKUP_LOCAL_FALLBACK_PATH="/var/lib/sentinelops/backup-fallback"
-
-# Lab value. Calibrate production with real backup history.
-BACKUP_MIN_SIZE_MB=10
-BACKUP_REQUIRE_SUCCESS_MARKER=false
-BACKUP_SUCCESS_MARKER=".sentinelops-success"
-
-FALLBACK_WARNING_AGE_HOURS=1
-FALLBACK_HIGH_AGE_HOURS=6
-FALLBACK_CRITICAL_AGE_HOURS=24
-FALLBACK_CRITICAL_SIZE_GB=10
-
-BUFFER_WARNING_AGE_HOURS=2
-BUFFER_HIGH_AGE_HOURS=6
-BUFFER_CRITICAL_AGE_HOURS=24
-BUFFER_CRITICAL_SIZE_GB=20
-
-ALERT_ON_UNCLASSIFIED_MOUNTS=true
-IGNORE_PSEUDO_FILESYSTEMS=true
-
-DRY_RUN=false
+# Optional: keep the full runner output separated from the short heartbeat log.
+HEARTBEAT_CRON_LOG="/var/log/sentinelops/heartbeat-cron.log"
