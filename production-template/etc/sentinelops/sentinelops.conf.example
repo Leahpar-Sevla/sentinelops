@@ -1,0 +1,57 @@
+# ==========================================================
+# SentinelOps - Configuration Example
+# ==========================================================
+# Copy to: /etc/sentinelops/sentinelops.conf
+# Do not commit real recipients, private domains or credentials.
+
+WARNING_RECIPIENT="support@example.com"
+HIGH_RECIPIENT="support@example.com"
+CRITICAL_RECIPIENT="manager@example.com"
+CRITICAL_CC_RECIPIENT="support@example.com"
+
+ALERT_COMMAND="/usr/local/bin/sentinela-email"
+
+SERVER_NAME="$(hostname)"
+ENVIRONMENT="lab"
+
+DISK_WARNING_PERCENT=80
+DISK_HIGH_PERCENT=90
+DISK_CRITICAL_PERCENT=95
+
+ROOT_CRITICAL_PERCENT=90
+VAR_CRITICAL_PERCENT=90
+
+INODE_WARNING_PERCENT=80
+INODE_HIGH_PERCENT=90
+INODE_CRITICAL_PERCENT=95
+
+BACKUP_MODE="backup-jobs"
+BACKUP_JOBS_CONF="/etc/sentinelops/backup_jobs.conf"
+
+BACKUP_SCHEDULE_HOUR=3
+BACKUP_GRACE_HOURS=2
+BACKUP_FOLDER_DATE_FORMAT="%Y-%m-%d"
+
+BACKUP_FINAL_PATH="/mnt/so-backup-active/backups"
+BACKUP_TEMP_PATH="/mnt/so-data/backup-temp"
+BACKUP_LOCAL_FALLBACK_PATH="/var/lib/sentinelops/backup-fallback"
+
+# Lab value. Calibrate production with real backup history.
+BACKUP_MIN_SIZE_MB=10
+BACKUP_REQUIRE_SUCCESS_MARKER=false
+BACKUP_SUCCESS_MARKER=".sentinelops-success"
+
+FALLBACK_WARNING_AGE_HOURS=1
+FALLBACK_HIGH_AGE_HOURS=6
+FALLBACK_CRITICAL_AGE_HOURS=24
+FALLBACK_CRITICAL_SIZE_GB=10
+
+BUFFER_WARNING_AGE_HOURS=2
+BUFFER_HIGH_AGE_HOURS=6
+BUFFER_CRITICAL_AGE_HOURS=24
+BUFFER_CRITICAL_SIZE_GB=20
+
+ALERT_ON_UNCLASSIFIED_MOUNTS=true
+IGNORE_PSEUDO_FILESYSTEMS=true
+
+DRY_RUN=false

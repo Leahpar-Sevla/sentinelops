@@ -1,26 +1,35 @@
-# Secrets and production configs
-.env
-*.env
-*.secret
-*.key
-*.pem
-msmtprc
-msmtprc.production
-/etc/msmtprc
-production.local/
-secrets/
-
-# Logs
-*.log
-logs/
-
-# Temporary files
-tmp/
-*.tmp
-*.swp
-*~
-
-# OS/editor files
+# OS/editor
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# Logs and runtime data
+*.log
+*.pid
+*.tmp
+tmp/
+logs/
+
+# Secrets and production-only files
+*.secret
+*.secrets
+.env
+.env.*
+msmtprc
+/etc/msmtprc
+sentinelops.conf.local
+backup_jobs.conf.local
+mounts.conf.local
+
+# Test artifacts
+*.bak
+*.bak.*
+*.old
+*.orig
+
+# Packages
+*.zip
+*.tar.gz

@@ -1,0 +1,17 @@
+# ==========================================================
+# SentinelOps - Backup Jobs Example
+# ==========================================================
+# Copy to: /etc/sentinelops/backup_jobs.conf
+#
+# Format:
+# job_name|source_path|final_base_path|expected_relative_path|fallback_path|log_file|min_size_mb|critical_after_hour
+
+# Tokens:
+# {YYYY}       = four-digit year
+# {MM}         = two-digit month
+# {MONTH_PT}   = Portuguese month name
+# {DD-MM-YY}   = short date
+
+main|/srv/sentinelops/shares/main|/mnt/so-backup-active/backups|{YYYY}/{MM}-{MONTH_PT}/{DD-MM-YY}|/var/lib/sentinelops/backup-fallback/main|/var/log/sentinelops/backup-main.log|10|5
+secondary|/srv/sentinelops/shares/secondary|/mnt/so-backup-active/backups|{YYYY}/{MM}-{MONTH_PT}/{DD-MM-YY}/secondary|/var/lib/sentinelops/backup-fallback/secondary|/var/log/sentinelops/backup-secondary.log|10|5
+#tertiary|/srv/sentinelops/shares/tertiary|/mnt/so-backup-active/backups|{YYYY}/{MM}-{MONTH_PT}/{DD-MM-YY}/tertiary|/var/lib/sentinelops/backup-fallback/tertiary|/var/log/sentinelops/backup-tertiary.log|10|5

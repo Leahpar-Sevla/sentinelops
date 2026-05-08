@@ -1,0 +1,40 @@
+SentinelOps — Server Folder Standardization
+
+This TXT can be pasted into a future chat when standardizing a server.
+
+Core idea:
+The Samba visible name can be friendly and site-specific.
+The Linux path must remain standardized.
+
+Standard paths:
+/srv/sentinelops/shares/main
+/srv/sentinelops/shares/secondary
+/srv/sentinelops/shares/tertiary
+/mnt/so-data
+/mnt/so-backup-active
+/mnt/so-archive
+/var/lib/sentinelops/backup-fallback
+/var/log/sentinelops
+
+Disk roles:
+critical = OS/service essential mount
+active = operational disk or active backup destination
+archived = read-only historical disk
+ignored = temporary exception with reason and review date
+
+Backup jobs:
+main = primary Samba source
+secondary = optional second source
+tertiary = optional third source
+
+Configuration files:
+/etc/sentinelops/sentinelops.conf
+/etc/sentinelops/mounts.conf
+/etc/sentinelops/backup_jobs.conf
+
+Never depend on /dev/sda or /dev/sdb.
+Use UUID in /etc/fstab.
+Use mount points and config files in SentinelOps.
+
+Before enabling automation, run:
+/usr/local/bin/sentinelops-check --no-email

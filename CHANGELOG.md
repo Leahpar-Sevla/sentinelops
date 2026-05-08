@@ -1,36 +1,30 @@
 # Changelog
 
-## 0.1.1 — Phase 01 portfolio hardening
+## v0.2.0-phase-02-core-sentinel
 
-### Added
+Phase 2 adds the first operational SentinelOps checker.
 
-- Sanitized Phase 01 test report.
-- Runbook for SMTP troubleshooting.
-- ADR documents explaining technical decisions.
-- Network and SMTP test scripts.
-- Local Phase 01 validation script.
-- Security policy.
-- References document.
+Added:
 
-### Improved
+- dynamic mount classification through `mounts.conf`;
+- active, critical and archived disk roles;
+- backup job validation through `backup_jobs.conf`;
+- support for one, two, three or more backup jobs;
+- per-job fallback monitoring;
+- backup daily folder validation;
+- warning/high/critical status model;
+- email escalation through the Phase 1 `sentinela-email` wrapper;
+- lab validation for OK, WARNING, HIGH and CRITICAL states;
+- standardized Linux paths for Samba, backups, fallback and logs.
 
-- README now includes production lessons learned.
-- Troubleshooting now covers IPv6 preference and AppArmor log denial.
+## v0.1.0-phase-01-smtp
 
-## 0.1.0 — Phase 01
+Phase 1 established the SMTP alert foundation.
 
-### Added
+Added:
 
-- Public project structure.
-- Example `msmtp` configuration.
-- Example `sentinela-email` wrapper.
-- Phase 01 documentation.
-- SMTP troubleshooting notes.
-- Security guidelines for public repositories.
-
-### Validated in production concept
-
-- SMTP connection over TLS.
-- Authenticated delivery through external SMTP provider.
-- Logging through syslog/journalctl.
-- Wrapper-based email delivery for future monitoring scripts.
+- Hostinger SMTP integration through `msmtp`;
+- syslog/journal logging for sent messages;
+- `sentinela-email` wrapper;
+- direct SMTP and wrapper validation;
+- lab approval for alert transport.

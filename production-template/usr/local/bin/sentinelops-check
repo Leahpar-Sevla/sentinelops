@@ -1,0 +1,417 @@
+#!/usr/bin/env bash
+
+set -uo pipefail
+
+CONF="/etc/sentinelops/sentinelops.conf"
+MOUNTS_CONF="/etc/sentinelops/mounts.conf"
+
+SEND_EMAIL=true
+if [[ "${1:-}" == "--no-email" ]]; then
+  SEND_EMAIL=false
+fi
+
+INFO_ALERTS=()
+WARNING_ALERTS=()
+HIGH_ALERTS=()
+CRITICAL_ALERTS=()
+
+add_alert() {
+  local severity="$1"
+  local message="$2"
+  case "$severity" in
+    INFO) INFO_ALERTS+=("$message") ;;
+    WARNING) WARNING_ALERTS+=("$message") ;;
+    HIGH) HIGH_ALERTS+=("$message") ;;
+    CRITICAL) CRITICAL_ALERTS+=("$message") ;;
+    *) WARNING_ALERTS+=("Unknown severity used: $severity - $message") ;;
+  esac
+}
+
+is_number() { [[ "${1:-}" =~ ^[0-9]+$ ]]; }
+is_yes() { [[ "${1:-}" == "yes" ]]; }
+is_mounted_exact() { findmnt -rn --mountpoint "$1" >/dev/null 2>&1; }
+mount_options() { findmnt -rn --mountpoint "$1" -o OPTIONS 2>/dev/null | head -n 1; }
+disk_use_percent() { df -P "$1" 2>/dev/null | awk 'NR==2 {gsub("%","",$5); print $5}'; }
+inode_use_percent() { df -Pi "$1" 2>/dev/null | awk 'NR==2 {gsub("%","",$5); print $5}'; }
+
+highest_status() {
+  if (( ${#CRITICAL_ALERTS[@]} > 0 )); then echo "CRITICAL"
+  elif (( ${#HIGH_ALERTS[@]} > 0 )); then echo "HIGH"
+  elif (( ${#WARNING_ALERTS[@]} > 0 )); then echo "WARNING"
+  else echo "OK"; fi
+}
+
+print_section() {
+  local title="$1"; shift
+  local items=("$@")
+  if (( ${#items[@]} > 0 )); then
+    echo
+    echo "## $title"
+    for item in "${items[@]}"; do echo "- $item"; done
+  fi
+}
+
+load_config() {
+  if [[ ! -f "$CONF" ]]; then
+    add_alert "CRITICAL" "Configuration file not found: $CONF"
+    return 1
+  fi
+
+  # shellcheck source=/etc/sentinelops/sentinelops.conf
+  source "$CONF"
+
+  SERVER_NAME="${SERVER_NAME:-$(hostname)}"
+  ENVIRONMENT="${ENVIRONMENT:-unknown}"
+
+  WARNING_RECIPIENT="${WARNING_RECIPIENT:-}"
+  HIGH_RECIPIENT="${HIGH_RECIPIENT:-}"
+  CRITICAL_RECIPIENT="${CRITICAL_RECIPIENT:-}"
+  CRITICAL_CC_RECIPIENT="${CRITICAL_CC_RECIPIENT:-}"
+  ALERT_COMMAND="${ALERT_COMMAND:-/usr/local/bin/sentinela-email}"
+
+  [[ -z "$WARNING_RECIPIENT" ]] && add_alert "CRITICAL" "WARNING_RECIPIENT is not configured"
+  [[ -z "$HIGH_RECIPIENT" ]] && add_alert "CRITICAL" "HIGH_RECIPIENT is not configured"
+  [[ -z "$CRITICAL_RECIPIENT" ]] && add_alert "CRITICAL" "CRITICAL_RECIPIENT is not configured"
+
+  DISK_WARNING_PERCENT="${DISK_WARNING_PERCENT:-80}"
+  DISK_HIGH_PERCENT="${DISK_HIGH_PERCENT:-90}"
+  DISK_CRITICAL_PERCENT="${DISK_CRITICAL_PERCENT:-95}"
+  ROOT_CRITICAL_PERCENT="${ROOT_CRITICAL_PERCENT:-90}"
+  VAR_CRITICAL_PERCENT="${VAR_CRITICAL_PERCENT:-90}"
+
+  INODE_WARNING_PERCENT="${INODE_WARNING_PERCENT:-80}"
+  INODE_HIGH_PERCENT="${INODE_HIGH_PERCENT:-90}"
+  INODE_CRITICAL_PERCENT="${INODE_CRITICAL_PERCENT:-95}"
+
+  BACKUP_MODE="${BACKUP_MODE:-backup-jobs}"
+  BACKUP_JOBS_CONF="${BACKUP_JOBS_CONF:-/etc/sentinelops/backup_jobs.conf}"
+  BACKUP_TEMP_PATH="${BACKUP_TEMP_PATH:-/mnt/so-data/backup-temp}"
+
+  FALLBACK_WARNING_AGE_HOURS="${FALLBACK_WARNING_AGE_HOURS:-1}"
+  FALLBACK_HIGH_AGE_HOURS="${FALLBACK_HIGH_AGE_HOURS:-6}"
+  FALLBACK_CRITICAL_AGE_HOURS="${FALLBACK_CRITICAL_AGE_HOURS:-24}"
+  FALLBACK_CRITICAL_SIZE_GB="${FALLBACK_CRITICAL_SIZE_GB:-10}"
+
+  BUFFER_WARNING_AGE_HOURS="${BUFFER_WARNING_AGE_HOURS:-2}"
+  BUFFER_HIGH_AGE_HOURS="${BUFFER_HIGH_AGE_HOURS:-6}"
+  BUFFER_CRITICAL_AGE_HOURS="${BUFFER_CRITICAL_AGE_HOURS:-24}"
+  BUFFER_CRITICAL_SIZE_GB="${BUFFER_CRITICAL_SIZE_GB:-20}"
+
+  ALERT_ON_UNCLASSIFIED_MOUNTS="${ALERT_ON_UNCLASSIFIED_MOUNTS:-true}"
+
+  [[ ! -x "$ALERT_COMMAND" ]] && add_alert "CRITICAL" "Alert command not found or not executable: $ALERT_COMMAND"
+}
+
+check_mounts() {
+  if [[ ! -f "$MOUNTS_CONF" ]]; then
+    add_alert "CRITICAL" "Mount classification file not found: $MOUNTS_CONF"
+    return 1
+  fi
+
+  declare -A configured_mounts=()
+  declare -A seen_mounts=()
+
+  while IFS='|' read -r mount_point role capacity_alert inode_alert must_be_mounted expected_readonly owner reason review_date extra; do
+    [[ -z "${mount_point// }" ]] && continue
+    [[ "$mount_point" =~ ^# ]] && continue
+
+    if [[ -n "${extra:-}" || -z "${review_date:-}" ]]; then
+      add_alert "HIGH" "Invalid mounts.conf line: $mount_point"
+      continue
+    fi
+
+    if [[ -n "${seen_mounts[$mount_point]:-}" ]]; then
+      add_alert "HIGH" "Duplicate mount classification detected: $mount_point"
+      continue
+    fi
+
+    seen_mounts["$mount_point"]=1
+    configured_mounts["$mount_point"]=1
+
+    local mounted=false
+    is_mounted_exact "$mount_point" && mounted=true
+
+    if is_yes "$must_be_mounted" && [[ "$mounted" == false ]]; then
+      case "$role" in
+        critical|active) add_alert "CRITICAL" "Required $role mount is not mounted: $mount_point" ;;
+        archived) add_alert "WARNING" "Archived mount is not mounted: $mount_point" ;;
+        *) add_alert "WARNING" "Configured mount is not mounted: $mount_point" ;;
+      esac
+      continue
+    fi
+
+    [[ "$mounted" == false ]] && continue
+
+    local options
+    options="$(mount_options "$mount_point")"
+
+    if is_yes "$expected_readonly" && [[ ",$options," != *",ro,"* ]]; then
+      add_alert "HIGH" "Mount should be read-only but is not: $mount_point options=$options"
+    fi
+
+    if [[ "$expected_readonly" == "no" && ( "$role" == "critical" || "$role" == "active" ) && ",$options," == *",ro,"* ]]; then
+      add_alert "CRITICAL" "Active/critical mount is read-only: $mount_point options=$options"
+    fi
+
+    if is_yes "$capacity_alert"; then
+      local use_pct warning high critical
+      use_pct="$(disk_use_percent "$mount_point")"
+      if is_number "$use_pct"; then
+        warning="$DISK_WARNING_PERCENT"; high="$DISK_HIGH_PERCENT"; critical="$DISK_CRITICAL_PERCENT"
+        [[ "$mount_point" == "/" ]] && critical="$ROOT_CRITICAL_PERCENT"
+        [[ "$mount_point" == "/var" ]] && critical="$VAR_CRITICAL_PERCENT"
+
+        if (( use_pct >= critical )); then add_alert "CRITICAL" "Disk usage critical: $mount_point is ${use_pct}% used"
+        elif (( use_pct >= high )); then add_alert "HIGH" "Disk usage high: $mount_point is ${use_pct}% used"
+        elif (( use_pct >= warning )); then add_alert "WARNING" "Disk usage warning: $mount_point is ${use_pct}% used"; fi
+      else
+        add_alert "HIGH" "Could not read disk usage for: $mount_point"
+      fi
+    fi
+
+    if is_yes "$inode_alert"; then
+      local inode_pct
+      inode_pct="$(inode_use_percent "$mount_point")"
+      if is_number "$inode_pct"; then
+        if (( inode_pct >= INODE_CRITICAL_PERCENT )); then add_alert "CRITICAL" "Inode usage critical: $mount_point is ${inode_pct}% used"
+        elif (( inode_pct >= INODE_HIGH_PERCENT )); then add_alert "HIGH" "Inode usage high: $mount_point is ${inode_pct}% used"
+        elif (( inode_pct >= INODE_WARNING_PERCENT )); then add_alert "WARNING" "Inode usage warning: $mount_point is ${inode_pct}% used"; fi
+      fi
+    fi
+
+    if [[ "$review_date" != "never" ]]; then
+      local review_epoch now_epoch
+      review_epoch="$(date -d "$review_date" +%s 2>/dev/null || echo 0)"
+      now_epoch="$(date +%s)"
+      [[ "$review_epoch" == "0" ]] && add_alert "WARNING" "Invalid review date for $mount_point: $review_date"
+      (( review_epoch != 0 && review_epoch < now_epoch )) && add_alert "WARNING" "Mount review date expired for $mount_point: $review_date owner=$owner reason=$reason"
+    fi
+  done < "$MOUNTS_CONF"
+
+  if [[ "$ALERT_ON_UNCLASSIFIED_MOUNTS" == "true" ]]; then
+    while read -r target source fstype; do
+      [[ "$source" != /dev/* ]] && continue
+      [[ -n "${configured_mounts[$target]:-}" ]] && continue
+      case "$fstype" in
+        tmpfs|devtmpfs|proc|sysfs|cgroup2|securityfs|debugfs|tracefs|fusectl|mqueue|hugetlbfs|efivarfs|bpf|configfs|autofs|binfmt_misc) continue ;;
+      esac
+      add_alert "WARNING" "Unclassified mounted filesystem detected: target=$target source=$source type=$fstype"
+    done < <(findmnt -rn -o TARGET,SOURCE,FSTYPE)
+  fi
+}
+
+month_pt_from_number() {
+  case "$1" in
+    01) echo "JANEIRO" ;; 02) echo "FEVEREIRO" ;; 03) echo "MARCO" ;;
+    04) echo "ABRIL" ;; 05) echo "MAIO" ;; 06) echo "JUNHO" ;;
+    07) echo "JULHO" ;; 08) echo "AGOSTO" ;; 09) echo "SETEMBRO" ;;
+    10) echo "OUTUBRO" ;; 11) echo "NOVEMBRO" ;; 12) echo "DEZEMBRO" ;;
+    *) echo "UNKNOWN" ;;
+  esac
+}
+
+expected_date_for_job() {
+  local critical_after_hour="$1"
+  local now_hour days_back
+  now_hour="$(date +%H)"
+  now_hour=$((10#$now_hour))
+  if (( now_hour >= critical_after_hour )); then days_back=1; else days_back=2; fi
+  date -d "$days_back days ago" +%Y-%m-%d
+}
+
+expand_backup_path() {
+  local template="$1" date_value="$2"
+  local yyyy mm dd yy month_pt dd_mm_yy result
+  yyyy="$(date -d "$date_value" +%Y)"
+  mm="$(date -d "$date_value" +%m)"
+  dd="$(date -d "$date_value" +%d)"
+  yy="$(date -d "$date_value" +%y)"
+  month_pt="$(month_pt_from_number "$mm")"
+  dd_mm_yy="${dd}-${mm}-${yy}"
+  result="$template"
+  result="${result//\{YYYY\}/$yyyy}"
+  result="${result//\{MM\}/$mm}"
+  result="${result//\{MONTH_PT\}/$month_pt}"
+  result="${result//\{DD-MM-YY\}/$dd_mm_yy}"
+  echo "$result"
+}
+
+path_total_size_bytes() { find "$1" -type f -printf '%s\n' 2>/dev/null | awk '{sum+=$1} END {print sum+0}'; }
+path_file_count() { find "$1" -type f 2>/dev/null | wc -l; }
+
+check_job_fallback() {
+  local job_name="$1" fallback_path="$2"
+  [[ -z "$fallback_path" ]] && { add_alert "HIGH" "Backup job has no fallback path configured: job=$job_name"; return; }
+  [[ ! -d "$fallback_path" ]] && { add_alert "HIGH" "Backup fallback path does not exist: job=$job_name path=$fallback_path"; return; }
+
+  local count
+  count="$(path_file_count "$fallback_path")"
+  if (( count == 0 )); then
+    add_alert "INFO" "Backup fallback is empty: job=$job_name path=$fallback_path"
+    return
+  fi
+
+  local oldest epoch size path now epoch_int age_hours total_bytes critical_bytes
+  oldest="$(find "$fallback_path" -type f -printf '%T@|%s|%p\n' 2>/dev/null | sort -t'|' -k1,1n | head -n 1)"
+  IFS='|' read -r epoch size path <<< "$oldest"
+  epoch_int="${epoch%.*}"
+  now="$(date +%s)"
+  age_hours=$(( (now - epoch_int) / 3600 ))
+  total_bytes="$(path_total_size_bytes "$fallback_path")"
+  critical_bytes=$(( FALLBACK_CRITICAL_SIZE_GB * 1024 * 1024 * 1024 ))
+
+  if (( age_hours >= FALLBACK_CRITICAL_AGE_HOURS )); then add_alert "CRITICAL" "Backup fallback contains old files: job=$job_name oldest=${age_hours}h files=$count path=$fallback_path"
+  elif (( age_hours >= FALLBACK_HIGH_AGE_HOURS )); then add_alert "HIGH" "Backup fallback contains files older than expected: job=$job_name oldest=${age_hours}h files=$count path=$fallback_path"
+  else add_alert "WARNING" "Backup fallback contains files: job=$job_name oldest=${age_hours}h files=$count path=$fallback_path"; fi
+
+  (( total_bytes >= critical_bytes )) && add_alert "CRITICAL" "Backup fallback size exceeded limit: job=$job_name total=${total_bytes}B limit=${FALLBACK_CRITICAL_SIZE_GB}GB path=$fallback_path"
+}
+
+check_backup_log_for_job() {
+  local job_name="$1" log_file="$2"
+  [[ -z "$log_file" ]] && { add_alert "INFO" "Backup job has no log configured: job=$job_name"; return; }
+  [[ ! -f "$log_file" ]] && { add_alert "INFO" "Backup log not found yet: job=$job_name log=$log_file"; return; }
+  if tail -n 120 "$log_file" 2>/dev/null | grep -Eqi 'ERRO CR[IÍ]TICO|Rsync falhou|falhou|error|failed'; then
+    add_alert "CRITICAL" "Backup log contains error markers: job=$job_name log=$log_file"
+  else
+    add_alert "INFO" "Backup log checked: job=$job_name log=$log_file"
+  fi
+}
+
+check_backup_jobs() {
+  if [[ ! -f "$BACKUP_JOBS_CONF" ]]; then
+    add_alert "CRITICAL" "Backup jobs file not found: $BACKUP_JOBS_CONF"
+    return
+  fi
+
+  local jobs_count=0
+  while IFS='|' read -r job_name source_path final_base_path expected_relative_path fallback_path log_file min_size_mb critical_after_hour extra; do
+    [[ -z "${job_name// }" ]] && continue
+    [[ "$job_name" =~ ^# ]] && continue
+    if [[ -n "${extra:-}" || -z "${critical_after_hour:-}" ]]; then
+      add_alert "HIGH" "Invalid backup_jobs.conf line: $job_name"
+      continue
+    fi
+    jobs_count=$((jobs_count + 1))
+
+    [[ ! -d "$source_path" ]] && add_alert "HIGH" "Backup source path does not exist: job=$job_name source=$source_path"
+    if [[ ! -d "$final_base_path" ]]; then
+      add_alert "CRITICAL" "Backup final base path does not exist: job=$job_name path=$final_base_path"
+      check_job_fallback "$job_name" "$fallback_path"; check_backup_log_for_job "$job_name" "$log_file"; continue
+    fi
+    [[ ! -w "$final_base_path" ]] && add_alert "CRITICAL" "Backup final base path is not writable: job=$job_name path=$final_base_path"
+
+    is_number "$min_size_mb" || { add_alert "HIGH" "Invalid min_size_mb for job=$job_name value=$min_size_mb"; min_size_mb=0; }
+    is_number "$critical_after_hour" || { add_alert "HIGH" "Invalid critical_after_hour for job=$job_name value=$critical_after_hour"; critical_after_hour=5; }
+
+    local expected_date rel expected_path file_count total_bytes min_bytes
+    expected_date="$(expected_date_for_job "$critical_after_hour")"
+    rel="$(expand_backup_path "$expected_relative_path" "$expected_date")"
+    expected_path="${final_base_path%/}/${rel}"
+
+    if [[ ! -d "$expected_path" ]]; then
+      add_alert "CRITICAL" "Expected backup folder missing: job=$job_name path=$expected_path critical_after_hour=$critical_after_hour"
+    else
+      file_count="$(path_file_count "$expected_path")"
+      total_bytes="$(path_total_size_bytes "$expected_path")"
+      min_bytes=$(( min_size_mb * 1024 * 1024 ))
+      if (( file_count == 0 )); then add_alert "CRITICAL" "Expected backup folder is empty: job=$job_name path=$expected_path"
+      elif (( total_bytes == 0 )); then add_alert "CRITICAL" "Expected backup folder has 0 bytes: job=$job_name path=$expected_path"
+      elif (( total_bytes < min_bytes )); then add_alert "HIGH" "Expected backup folder is smaller than expected: job=$job_name path=$expected_path size=${total_bytes}B minimum=${min_size_mb}MB files=${file_count}"
+      else add_alert "INFO" "Backup job OK: job=$job_name path=$expected_path files=${file_count} size=${total_bytes}B"; fi
+    fi
+    check_job_fallback "$job_name" "$fallback_path"
+    check_backup_log_for_job "$job_name" "$log_file"
+  done < "$BACKUP_JOBS_CONF"
+
+  (( jobs_count == 0 )) && add_alert "CRITICAL" "No backup jobs configured in: $BACKUP_JOBS_CONF"
+}
+
+check_buffer() {
+  if [[ -z "$BACKUP_TEMP_PATH" ]]; then add_alert "CRITICAL" "BACKUP_TEMP_PATH is not configured"; return; fi
+  if [[ ! -d "$BACKUP_TEMP_PATH" ]]; then add_alert "CRITICAL" "Backup temp/buffer path does not exist: $BACKUP_TEMP_PATH"; return; fi
+
+  local count
+  count="$(find "$BACKUP_TEMP_PATH" -type f 2>/dev/null | wc -l)"
+  if (( count == 0 )); then add_alert "INFO" "Backup temp/buffer is empty: $BACKUP_TEMP_PATH"; return; fi
+
+  local oldest epoch size path now epoch_int age_hours total_bytes critical_bytes
+  oldest="$(find "$BACKUP_TEMP_PATH" -type f -printf '%T@|%s|%p\n' 2>/dev/null | sort -t'|' -k1,1n | head -n 1)"
+  IFS='|' read -r epoch size path <<< "$oldest"
+  epoch_int="${epoch%.*}"
+  now="$(date +%s)"
+  age_hours=$(( (now - epoch_int) / 3600 ))
+  total_bytes="$(find "$BACKUP_TEMP_PATH" -type f -printf '%s\n' 2>/dev/null | awk '{sum+=$1} END {print sum+0}')"
+  critical_bytes=$(( BUFFER_CRITICAL_SIZE_GB * 1024 * 1024 * 1024 ))
+
+  if (( age_hours >= BUFFER_CRITICAL_AGE_HOURS )); then add_alert "CRITICAL" "Buffer contains old files: oldest=${age_hours}h files=$count path=$BACKUP_TEMP_PATH"
+  elif (( age_hours >= BUFFER_HIGH_AGE_HOURS )); then add_alert "HIGH" "Buffer contains files older than expected: oldest=${age_hours}h files=$count path=$BACKUP_TEMP_PATH"
+  elif (( age_hours >= BUFFER_WARNING_AGE_HOURS )); then add_alert "WARNING" "Buffer contains files: oldest=${age_hours}h files=$count path=$BACKUP_TEMP_PATH"
+  else add_alert "WARNING" "Buffer contains recent files: files=$count path=$BACKUP_TEMP_PATH"; fi
+
+  (( total_bytes >= critical_bytes )) && add_alert "CRITICAL" "Buffer size exceeded limit: total=${total_bytes}B limit=${BUFFER_CRITICAL_SIZE_GB}GB path=$BACKUP_TEMP_PATH"
+}
+
+build_report() {
+  local status="$1"
+  echo "SentinelOps Check Report"
+  echo "========================"
+  echo "Server: ${SERVER_NAME:-$(hostname)}"
+  echo "Environment: ${ENVIRONMENT:-unknown}"
+  echo "Status: $status"
+  echo "Date: $(date -Iseconds)"
+  echo
+  print_section "CRITICAL" "${CRITICAL_ALERTS[@]}"
+  print_section "HIGH" "${HIGH_ALERTS[@]}"
+  print_section "WARNING" "${WARNING_ALERTS[@]}"
+  print_section "INFO" "${INFO_ALERTS[@]}"
+  [[ "$status" == "OK" ]] && echo "No actionable issues detected."
+}
+
+send_report() {
+  local status="$1" report="$2" subject recipient
+  [[ "$status" == "OK" ]] && return 0
+  [[ ! -x "$ALERT_COMMAND" ]] && { echo "Cannot send alert: ALERT_COMMAND unavailable: $ALERT_COMMAND" >&2; return 1; }
+
+  case "$status" in
+    CRITICAL) recipient="$CRITICAL_RECIPIENT"; subject="[CRITICAL] SentinelOps - ${SERVER_NAME} - Immediate action required" ;;
+    HIGH) recipient="$HIGH_RECIPIENT"; subject="[HIGH] SentinelOps - ${SERVER_NAME} - Risk detected" ;;
+    WARNING) recipient="$WARNING_RECIPIENT"; subject="[WARNING] SentinelOps - ${SERVER_NAME} - Maintenance required" ;;
+    *) return 0 ;;
+  esac
+
+  [[ -n "$recipient" ]] && printf '%s\n' "$report" | "$ALERT_COMMAND" "$recipient" "$subject"
+  if [[ "$status" == "CRITICAL" && -n "${CRITICAL_CC_RECIPIENT:-}" && "$CRITICAL_CC_RECIPIENT" != "$recipient" ]]; then
+    printf '%s\n' "$report" | "$ALERT_COMMAND" "$CRITICAL_CC_RECIPIENT" "$subject"
+  fi
+}
+
+main() {
+  load_config
+  check_mounts
+  if [[ "${BACKUP_MODE:-}" == "backup-jobs" ]]; then
+    check_backup_jobs
+  else
+    add_alert "HIGH" "Unsupported or legacy BACKUP_MODE configured in this example: ${BACKUP_MODE:-unset}"
+  fi
+  check_buffer
+
+  local status report
+  status="$(highest_status)"
+  report="$(build_report "$status")"
+
+  printf '%s\n' "$report"
+  logger -t sentinelops-check "status=$status critical=${#CRITICAL_ALERTS[@]} high=${#HIGH_ALERTS[@]} warning=${#WARNING_ALERTS[@]} info=${#INFO_ALERTS[@]}"
+
+  [[ "$SEND_EMAIL" == true ]] && send_report "$status" "$report"
+
+  case "$status" in
+    OK) exit 0 ;;
+    WARNING) exit 1 ;;
+    HIGH) exit 2 ;;
+    CRITICAL) exit 3 ;;
+    *) exit 4 ;;
+  esac
+}
+
+main

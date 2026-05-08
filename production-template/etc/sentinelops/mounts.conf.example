@@ -1,0 +1,15 @@
+# ==========================================================
+# SentinelOps - Mount Classification Example
+# ==========================================================
+# Copy to: /etc/sentinelops/mounts.conf
+#
+# Format:
+# mount_point|role|capacity_alert|inode_alert|must_be_mounted|expected_readonly|owner|reason|review_date
+
+/|critical|yes|yes|yes|no|IT|Main operating system filesystem|never
+/boot|critical|yes|yes|yes|no|IT|Boot partition|never
+/boot/efi|critical|yes|no|yes|no|IT|EFI partition|never
+
+/mnt/so-data|active|yes|yes|yes|no|IT|Active data and buffer disk|2026-08-01
+/mnt/so-backup-active|active|yes|yes|yes|no|IT|Active backup destination|2026-08-01
+/mnt/so-archive|archived|no|no|yes|yes|IT|Read-only archived backup disk for consultation|2026-08-01
