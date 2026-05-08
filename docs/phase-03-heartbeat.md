@@ -17,11 +17,7 @@ This phase does **not** replace the SentinelOps internal checks. Disk usage, bac
 ## Architecture
 
 ```text
-cron
-  -> /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
-      -> /usr/local/bin/sentinelops-check
-          -> local checks and alert routing
-      -> Healthchecks.io /start, success, or /fail
+cron -> /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh -> /usr/local/bin/sentinelops-check -> local checks and alert routing -> Healthchecks.io /start, success, or /fail
 ```
 
 ## Standard naming

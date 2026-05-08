@@ -6,23 +6,15 @@
 # ==========================================================
 #
 # Responsibilities:
-#   1. Load local SentinelOps configuration.
-#   2. Signal START to Healthchecks.io.
-#   3. Execute the SentinelOps check script.
-#   4. Signal OK or FAIL to Healthchecks.io.
-#   5. Write local audit logs.
+# 1. Load local SentinelOps configuration.
+# 2. Signal START to Healthchecks.io.
+# 3. Execute the SentinelOps check script.
+# 4. Signal OK or FAIL to Healthchecks.io.
+# 5. Write local audit logs.
 #
 # Security:
-#   - Do not hardcode real Healthchecks URLs here.
-#   - Store real URLs only in /etc/sentinelops/sentinelops.conf.
-#
-# Expected config variables:
-#   HEALTHCHECKS_URL
-#   SENTINELA_SCRIPT
-#   HEARTBEAT_LOG
-#   CLIENTE
-#   ENVIRONMENT
-#   HOSTNAME_PADRAO
+# - Do not hardcode real Healthchecks URLs here.
+# - Store real URLs only in /etc/sentinelops/sentinelops.conf.
 
 set -u
 
@@ -57,9 +49,9 @@ ping_hc() {
   curl -fsS -m 10 --retry 5 -o /dev/null "${HEALTHCHECKS_URL}${endpoint}"
 }
 
-log "INFO" "Starting heartbeat. Cliente=${CLIENTE} Ambiente=${ENVIRONMENT} Host=${HOSTNAME_PADRAO} Script=${SENTINELA_SCRIPT}"
+log "INFO" "Starting heartbeat. Client=${CLIENTE} Environment=${ENVIRONMENT} Host=${HOSTNAME_PADRAO} Script=${SENTINELA_SCRIPT}"
 
-# START: records that the run began. If execution hangs after this point,
+# START records that the run began. If execution hangs after this point,
 # Healthchecks can report the run as overdue.
 ping_hc "/start" || log "WARN" "Failed to send START ping to Healthchecks."
 
