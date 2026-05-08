@@ -1,24 +1,27 @@
-# Phase 3 — Heartbeat Test Plan
+# Phase 03 Heartbeat Test Plan
 
-## Purpose
+## Objective
 
-Validate that SentinelOps Phase 3 can detect:
+Validate the external heartbeat layer for SentinelOps.
 
-1. Successful execution.
-2. Technical failure during execution.
-3. Cron execution.
-4. Missing heartbeat / silent server condition.
+Phase 03 must prove three separate states:
 
-## Preconditions
+```text
+OK      -> SentinelOps ran successfully.
+FAIL    -> Runner executed but the SentinelOps check failed technically.
+SILENT  -> Server, cron, network, or monitoring path stopped reporting.
+```
 
-- Healthchecks check exists.
-- Check name follows: `SENTINELOPS-[CLIENTE]-[HOSTNAME]-HEARTBEAT`.
-- Healthchecks schedule is `Period: 1 hour`, `Grace Time: 15 minutes`.
-- `/etc/sentinelops/sentinelops.conf` contains a real `HEALTHCHECKS_URL`.
-- `/usr/local/bin/sentinelops-check` exists and is executable.
-- Runner exists at `/opt/sentinelops/bin/sentinelops-heartbeat-runner.sh`.
+## Pre-checks
 
-## Test 1 — Direct Healthchecks ping
+```bash
+sudo grep -E '^(CLIENTE|ENVIRONMENT|HOSTNAME_PADRAO|SENTINELA_SCRIPT|HEARTBEAT_LOG)=' /etc/sentinelops/sentinelops.conf
+sudo sh -c 'grep -q "^HEALTHCHECKS_URL=" /etc/sentinelops/sentinelops.conf && echo "HEALTHCHECKS_URL configured" || echo "HEALTHCHECKS_URL missing"'
+sudo ls -lah /usr/local/bin/sentinelops-check
+sudo ls -lah /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
+```
+
+## Test 1 — direct Healthchecks ping
 
 ```bash
 sudo bash -c '
@@ -40,24 +43,24 @@ START OK
 PING OK
 ```
 
-## Test 2 — Manual runner execution
+## Test 2 — runner manual OK
 
 ```bash
 sudo /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
-echo $?
-sudo tail -n 30 /var/log/sentinelops/heartbeat.log
+echo "runner_exit=$?"
+sudo tail -n 20 /var/log/sentinelops/heartbeat.log
 ```
 
 Expected result:
 
 ```text
-exit code: 0
-[OK] SentinelOps check completed successfully. Exit code=0
+runner_exit=0
+[OK] SentinelOps check completed successfully
 ```
 
-## Test 3 — Cron execution proof
+## Test 3 — cron execution
 
-Temporarily run every minute:
+Temporarily change the cron entry to every minute:
 
 ```cron
 * * * * * root /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh >> /var/log/sentinelops/heartbeat-cron.log 2>&1
@@ -69,7 +72,7 @@ Restart cron:
 sudo systemctl restart cron
 ```
 
-After 1–2 minutes:
+Validate:
 
 ```bash
 sudo journalctl -u cron --since "3 minutes ago" --no-pager
@@ -81,30 +84,30 @@ Expected result:
 
 ```text
 (root) CMD (/opt/sentinelops/bin/sentinelops-heartbeat-runner.sh >> /var/log/sentinelops/heartbeat-cron.log 2>&1)
-[OK] SentinelOps check completed successfully. Exit code=0
+[OK] SentinelOps check completed successfully
 ```
 
-Return cron to hourly after the test:
+Return cron to hourly:
 
 ```cron
 5 * * * * root /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh >> /var/log/sentinelops/heartbeat-cron.log 2>&1
 ```
 
-## Test 4 — Controlled FAIL
+## Test 4 — controlled FAIL
 
-Backup config:
+Backup the config:
 
 ```bash
 sudo cp -a /etc/sentinelops/sentinelops.conf /etc/sentinelops/sentinelops.conf.bak.phase3-failtest
 ```
 
-Point the runner to a nonexistent script:
+Break the script path:
 
 ```bash
 sudo sed -i 's|^SENTINELA_SCRIPT=.*|SENTINELA_SCRIPT="/usr/local/bin/sentinelops-check-inexistente"|' /etc/sentinelops/sentinelops.conf
 ```
 
-Run the runner:
+Run:
 
 ```bash
 sudo /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
@@ -119,51 +122,61 @@ runner_exit=3
 [FAIL] SentinelOps check not found or not executable
 ```
 
-Restore config immediately:
+Restore:
 
 ```bash
 sudo mv /etc/sentinelops/sentinelops.conf.bak.phase3-failtest /etc/sentinelops/sentinelops.conf
 sudo chown root:root /etc/sentinelops/sentinelops.conf
 sudo chmod 600 /etc/sentinelops/sentinelops.conf
-```
-
-Run the runner again:
-
-```bash
 sudo /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
-echo "runner_exit=$?"
 ```
 
-Expected result:
+Expected recovery:
 
 ```text
 runner_exit=0
+Healthchecks status returns to UP
 ```
 
-## Test 5 — Missing ping / silent server simulation
+## Test 5 — missing ping / silent server
 
-Status: pending.
+Temporarily reduce Healthchecks schedule for the lab check:
 
-Recommended lab procedure:
+```text
+Period: 2 minutes
+Grace Time: 1 minute
+```
 
-1. Temporarily change the Healthchecks check to:
-   - Period: `2 minutes`
-   - Grace Time: `1 minute`
-2. Stop cron:
+Stop cron:
 
 ```bash
 sudo systemctl stop cron
 ```
 
-3. Wait 3–4 minutes.
-4. Confirm Healthchecks sends `DOWN`.
-5. Restore cron:
+Wait 3 to 4 minutes.
+
+Expected result:
+
+```text
+Healthchecks sends DOWN notification.
+```
+
+Restore:
 
 ```bash
 sudo systemctl start cron
 sudo /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
 ```
 
-6. Restore Healthchecks schedule:
-   - Period: `1 hour`
-   - Grace Time: `15 minutes`
+Return Healthchecks schedule to:
+
+```text
+Period: 1 hour
+Grace Time: 15 minutes
+```
+
+Expected recovery:
+
+```text
+Healthchecks sends UP notification.
+```

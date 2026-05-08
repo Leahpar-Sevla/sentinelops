@@ -1,69 +1,54 @@
-# Phase 3 — Lab Validation Results
+# Phase 03 Lab Results
 
 ## Environment
 
-| Field | Value |
-|---|---|
-| Server | `dev-server` |
-| Environment | `lab` |
-| Healthchecks check | `SENTINELOPS-TESTE-LAB-HEARTBEAT` |
-| Runner | `/opt/sentinelops/bin/sentinelops-heartbeat-runner.sh` |
-| SentinelOps check | `/usr/local/bin/sentinelops-check` |
-| Config | `/etc/sentinelops/sentinelops.conf` |
-| Heartbeat log | `/var/log/sentinelops/heartbeat.log` |
-| Cron output log | `/var/log/sentinelops/heartbeat-cron.log` |
+```text
+Server: dev-server
+Environment: lab
+Check: SENTINELOPS-TESTE-LAB-HEARTBEAT
+Healthchecks period: 1 hour
+Healthchecks grace: 15 minutes
+```
 
-## Completed tests
+## Results
 
-| Test | Status | Evidence |
+| Test | Result | Evidence |
 |---|---|---|
-| Healthchecks check created | Passed | Check created as `SENTINELOPS-TESTE-LAB-HEARTBEAT` |
-| Direct `/start` ping | Passed | Command returned `OK` |
-| Direct success ping | Passed | Command returned `OK` |
-| Manual runner execution | Passed | Runner returned `0` |
-| SentinelOps internal check | Passed | Report returned `Status: OK` and `No actionable issues detected` |
-| Cron execution | Passed | `journalctl -u cron` showed the runner command executing every minute during temporary test |
-| Controlled FAIL | Passed | Runner returned `runner_exit=3` after pointing to nonexistent script |
-| Recovery after FAIL | Passed | Config restored and runner returned `runner_exit=0` |
-| Healthchecks DOWN/UP notification | Passed | Healthchecks sent DOWN after controlled failure and UP after recovery |
+| Direct `/start` ping | PASS | Healthchecks returned OK |
+| Direct success ping | PASS | Healthchecks returned OK |
+| Runner manual OK | PASS | `runner_exit=0` |
+| Cron temporary every-minute execution | PASS | `journalctl -u cron` showed runner command |
+| Controlled technical failure | PASS | `runner_exit=3` |
+| Healthchecks DOWN notification | PASS | Email received during controlled `/fail` test |
+| Recovery after config restore | PASS | `runner_exit=0` and Healthchecks UP notification |
+| Missing-ping / silent server | PENDING | To be tested later |
 
-## Key observed log excerpts
+## Notes
 
-```text
-2026-05-08 19:43:02 [OK] Sentinela concluído com sucesso técnico. Exit code=0
-2026-05-08 19:44:02 [OK] Sentinela concluído com sucesso técnico. Exit code=0
-2026-05-08 19:45:02 [OK] Sentinela concluído com sucesso técnico. Exit code=0
-```
+The controlled failure test changed:
 
 ```text
-2026-05-08 19:47:53 [INFO] Iniciando heartbeat. Cliente=TESTE Ambiente=lab Host=dev-server Script=/usr/local/bin/sentinelops-check-inexistente
-2026-05-08 19:47:54 [FAIL] Sentinela não encontrado ou sem permissão de execução: /usr/local/bin/sentinelops-check-inexistente
+SENTINELA_SCRIPT="/usr/local/bin/sentinelops-check-inexistente"
 ```
+
+The runner correctly logged:
 
 ```text
-2026-05-08 19:48:48 [INFO] Iniciando heartbeat. Cliente=TESTE Ambiente=lab Host=dev-server Script=/usr/local/bin/sentinelops-check
-2026-05-08 19:48:48 [OK] Sentinela concluído com sucesso técnico. Exit code=0
+[FAIL] SentinelOps check not found or not executable
 ```
 
-## Pending tests
+After restoring:
 
-| Test | Status | Notes |
-|---|---|---|
-| Missing ping / silent server | Pending | Simulate cron/server silence and confirm Healthchecks DOWN by timeout |
-| Final cron verification after reverting to hourly | Pending | Confirm cron is back to `5 * * * *` and not running every minute |
-| Remove or rename default `My First Check` | Pending | Avoid operational noise in the Healthchecks dashboard |
-| Rotate exposed lab Ping URL before production reuse | Recommended | The lab URL appeared in screenshots/log context; do not reuse for production |
-
-## Current operational recommendation
-
-Before ending the work session, verify the cron file is not left running every minute:
-
-```bash
-sudo cat /etc/cron.d/sentinelops-heartbeat
+```text
+SENTINELA_SCRIPT="/usr/local/bin/sentinelops-check"
 ```
 
-Expected production/lab baseline:
+the runner returned to success.
 
-```cron
-5 * * * * root /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh >> /var/log/sentinelops/heartbeat-cron.log 2>&1
-```
+## Pending work
+
+- Reconfirm cron baseline is restored to hourly.
+- Perform missing-ping test.
+- Remove or rename the default `My First Check`.
+- Rotate lab Healthchecks Ping URL before production reuse.
+- Add logrotate policy in a later hardening phase.

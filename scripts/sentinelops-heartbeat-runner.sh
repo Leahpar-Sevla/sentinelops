@@ -49,9 +49,9 @@ ping_hc() {
   curl -fsS -m 10 --retry 5 -o /dev/null "${HEALTHCHECKS_URL}${endpoint}"
 }
 
-log "INFO" "Starting heartbeat. Client=${CLIENTE} Environment=${ENVIRONMENT} Host=${HOSTNAME_PADRAO} Script=${SENTINELA_SCRIPT}"
+log "INFO" "Starting heartbeat. Cliente=${CLIENTE} Ambiente=${ENVIRONMENT} Host=${HOSTNAME_PADRAO} Script=${SENTINELA_SCRIPT}"
 
-# START records that the run began. If execution hangs after this point,
+# START: records that the run began. If execution hangs after this point,
 # Healthchecks can report the run as overdue.
 ping_hc "/start" || log "WARN" "Failed to send START ping to Healthchecks."
 
