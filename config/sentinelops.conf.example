@@ -11,25 +11,15 @@
 #
 # Do not commit the real file with real secrets.
 
-# -----------------------------
-# Existing SentinelOps settings
-# -----------------------------
 ENVIRONMENT="lab"
 CLIENTE="TESTE"
 HOSTNAME_PADRAO="$(hostname)"
 
-# Existing SentinelOps check command.
 SENTINELA_SCRIPT="/usr/local/bin/sentinelops-check"
 
-# -----------------------------
-# Phase 3 - Heartbeat / Dead Man's Switch
-# -----------------------------
 # Healthchecks Ping URL for this specific server.
 # This is a secret. Replace this placeholder on the server only.
 HEALTHCHECKS_URL="https://hc-ping.com/REPLACE_WITH_SERVER_UUID"
 
-# Local heartbeat audit log.
 HEARTBEAT_LOG="/var/log/sentinelops/heartbeat.log"
-
-# Optional: keep the full runner output separated from the short heartbeat log.
 HEARTBEAT_CRON_LOG="/var/log/sentinelops/heartbeat-cron.log"

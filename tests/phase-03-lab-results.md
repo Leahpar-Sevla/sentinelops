@@ -6,8 +6,8 @@
 Server: dev-server
 Environment: lab
 Check: SENTINELOPS-TESTE-LAB-HEARTBEAT
-Healthchecks period: 1 hour
-Healthchecks grace: 15 minutes
+Baseline Healthchecks period: 1 hour
+Baseline Healthchecks grace: 15 minutes
 ```
 
 ## Results
@@ -19,36 +19,45 @@ Healthchecks grace: 15 minutes
 | Runner manual OK | PASS | `runner_exit=0` |
 | Cron temporary every-minute execution | PASS | `journalctl -u cron` showed runner command |
 | Controlled technical failure | PASS | `runner_exit=3` |
-| Healthchecks DOWN notification | PASS | Email received during controlled `/fail` test |
+| Healthchecks DOWN notification from technical failure | PASS | Email received |
 | Recovery after config restore | PASS | `runner_exit=0` and Healthchecks UP notification |
-| Missing-ping / silent server | PENDING | To be tested later |
+| Operational severity with heartbeat OK | PASS | `sentinelops-check` returned `3`, runner returned `0` |
+| Missing-ping / silent heartbeat | PASS | Heartbeat cron disabled, Healthchecks detected silence |
+| Recovery after restoring cron | PASS | Healthchecks returned UP |
+| Cron restored to hourly baseline | PASS | `5 * * * *` active in `/etc/cron.d/sentinelops-heartbeat` |
 
-## Notes
+## Key validation
 
-The controlled failure test changed:
+The runner was updated to separate operational severity from heartbeat health.
 
-```text
-SENTINELA_SCRIPT="/usr/local/bin/sentinelops-check-inexistente"
-```
-
-The runner correctly logged:
-
-```text
-[FAIL] SentinelOps check not found or not executable
-```
-
-After restoring:
+Observed condition:
 
 ```text
-SENTINELA_SCRIPT="/usr/local/bin/sentinelops-check"
+SentinelOps Check Report
+Status: CRITICAL
+Expected backup folder missing: 08-05-26
 ```
 
-the runner returned to success.
+Expected runner behavior:
 
-## Pending work
+```text
+runner_exit=0
+[OK] SentinelOps check executed with operational severity. Exit code=3. Heartbeat kept OK.
+```
 
-- Reconfirm cron baseline is restored to hourly.
-- Perform missing-ping test.
-- Remove or rename the default `My First Check`.
-- Rotate lab Healthchecks Ping URL before production reuse.
-- Add logrotate policy in a later hardening phase.
+This proves the external heartbeat is measuring whether the monitoring cycle executed, not whether the backup is healthy.
+
+## Final baseline
+
+Cron:
+
+```cron
+5 * * * * root /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh >> /var/log/sentinelops/heartbeat-cron.log 2>&1
+```
+
+Healthchecks:
+
+```text
+Period: 1 hour
+Grace Time: 15 minutes
+```

@@ -2,17 +2,16 @@
 
 ## Objective
 
-Phase 3 adds an external heartbeat to SentinelOps so the monitoring stack can detect when a server, cron job, network path, or the SentinelOps check runner stops reporting.
+Phase 3 adds an external heartbeat to SentinelOps so the monitoring stack can detect when a server, cron job, network path, or the SentinelOps runner stops reporting.
 
-The core rule is simple:
+The core rule is:
 
 ```text
 If the server is healthy, it pings.
-If the SentinelOps check fails technically, it reports failure.
-If the server is offline, silent, or unable to reach the internet, the external monitor detects the missing ping.
+If sentinelops-check detects an operational issue, SentinelOps sends the operational alert and the heartbeat remains OK.
+If the server, cron, network or runner becomes silent, Healthchecks.io detects the missing ping.
+If the runner cannot execute SentinelOps technically, Healthchecks.io receives FAIL.
 ```
-
-This phase does **not** replace the SentinelOps internal checks. Disk usage, backup freshness, buffer/fallback health, and alert escalation remain the responsibility of `sentinelops-check`.
 
 ## Architecture
 
@@ -24,42 +23,38 @@ cron
   -> Healthchecks.io /start, success, or /fail
 ```
 
-## Standard naming
+## Separation of responsibilities
 
-Each server must have its own check:
+| Component | Responsibility |
+|---|---|
+| `sentinelops-check` | Detect backup, disk, fallback, buffer and operational health issues |
+| `sentinela-email` | Send operational WARNING/HIGH/CRITICAL alerts |
+| `sentinelops-heartbeat-runner.sh` | Prove the monitoring cycle executed |
+| Healthchecks.io | Detect missing pings, runner failure, cron silence, server/network outage |
 
-```text
-SENTINELOPS-[CLIENTE]-[HOSTNAME]-HEARTBEAT
-```
+## State model
 
-Lab example:
+| State | Meaning | Healthchecks signal |
+|---|---|---|
+| START | Runner started execution | `/start` |
+| OK | SentinelOps check completed without operational alerts | base URL |
+| OPERATIONAL SEVERITY | SentinelOps check completed and found WARNING/HIGH/CRITICAL issues | base URL |
+| TECHNICAL FAIL | Config/script/permission/unexpected exit failure | `/fail` |
+| SILENT/DOWN | No ping arrived within Period + Grace | no ping |
 
-```text
-SENTINELOPS-TESTE-LAB-HEARTBEAT
-```
+## Exit code mapping
 
-Production examples:
+| `sentinelops-check` exit code | Meaning for heartbeat | Healthchecks result |
+|---:|---|---|
+| `0` | Check ran and found no actionable operational issue | OK |
+| `1` | Check ran and found operational severity | OK |
+| `2` | Check ran and found operational severity | OK |
+| `3` | Check ran and found operational severity | OK |
+| any other code | Unexpected technical condition | FAIL |
 
-```text
-SENTINELOPS-JOLIMONT-FILESERVER01-HEARTBEAT
-SENTINELOPS-MATRIZ-BACKUP01-HEARTBEAT
-```
-
-## One server, one heartbeat
-
-Never reuse a single Healthchecks URL across multiple servers.
-
-Correct:
-
-```text
-1 server = 1 Healthchecks check = 1 Ping URL = 1 local config
-```
-
-Why: if multiple servers use the same check, one server can fail while another keeps the check green.
+This prevents the external heartbeat from confusing "backup is missing" with "the server is dead." The operational alert still goes through the SentinelOps email flow.
 
 ## Schedule standard
-
-Default production/lab schedule:
 
 ```text
 Runner cron: every 1 hour, at minute 05
@@ -67,86 +62,23 @@ Healthchecks period: 1 hour
 Healthchecks grace time: 15 minutes
 ```
 
-Cron entry:
+## Lab validation summary
 
-```cron
-5 * * * * root /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh >> /var/log/sentinelops/heartbeat-cron.log 2>&1
-```
+Validated in lab:
 
-## State model
-
-| State | Meaning | Source |
-|---|---|---|
-| START | Runner started execution | Healthchecks `/start` |
-| OK | SentinelOps check completed with exit code `0` | Healthchecks base URL |
-| FAIL | Runner executed but SentinelOps failed technically | Healthchecks `/fail` |
-| DOWN/SILENT | No ping arrived within period + grace | Healthchecks timeout |
-
-## Severity interpretation
-
-| Event | Detection | Severity | First owner |
-|---|---|---|---|
-| Disk or backup issue | `sentinelops-check` | WARNING/HIGH/CRITICAL | TI / Gestão based on existing escalation |
-| Runner cannot find SentinelOps script | Heartbeat runner | CRITICAL | TI |
-| Cron stopped | Healthchecks missing ping | CRITICAL | TI |
-| Server powered off | Healthchecks missing ping | CRITICAL | TI + Gestão if persistent |
-| Network/Tailscale/internet unavailable | Healthchecks missing ping | CRITICAL | TI + Gestão if persistent |
-
-## Secret handling
-
-The Healthchecks Ping URL is an operational secret.
-
-Allowed:
-
-```text
-/etc/sentinelops/sentinelops.conf
-private deployment notes
-password manager / secure vault
-```
-
-Not allowed:
-
-```text
-README.md
-public GitHub commits
-screenshots shared outside the team
-hardcoded production URLs in scripts
-```
-
-The repository must only contain placeholders such as:
-
-```bash
-HEALTHCHECKS_URL="https://hc-ping.com/REPLACE_WITH_SERVER_UUID"
-```
-
-## Local files
-
-Expected server-side files:
-
-```text
-/etc/sentinelops/sentinelops.conf
-/opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
-/etc/cron.d/sentinelops-heartbeat
-/var/log/sentinelops/heartbeat.log
-/var/log/sentinelops/heartbeat-cron.log
-```
-
-## Operational checklist
-
-- [ ] Create one Healthchecks check per server.
-- [ ] Use the standard name `SENTINELOPS-[CLIENTE]-[HOSTNAME]-HEARTBEAT`.
-- [ ] Configure period `1 hour` and grace `15 minutes`.
-- [ ] Store the real Ping URL only in `/etc/sentinelops/sentinelops.conf`.
-- [ ] Install the runner in `/opt/sentinelops/bin/`.
-- [ ] Confirm `/usr/local/bin/sentinelops-check` exists and is executable.
-- [ ] Test direct `/start` and success ping.
-- [ ] Test runner manually.
-- [ ] Test cron execution.
-- [ ] Test controlled `/fail` behavior.
-- [ ] Test missing-ping behavior.
-- [ ] Return cron to hourly schedule after tests.
+- direct `/start` ping;
+- direct success ping;
+- manual runner success;
+- cron execution;
+- controlled technical `/fail`;
+- recovery after failure;
+- operational CRITICAL from `sentinelops-check` while heartbeat stayed OK;
+- missing-ping / silent heartbeat test;
+- recovery to UP after restoring the cron entry;
+- final cron restored to hourly schedule.
 
 ## Official references
 
 - Healthchecks.io Pinging API: https://healthchecks.io/docs/http_api/
-- Healthchecks.io check configuration: https://healthchecks.io/docs/configuring_checks/
+- Healthchecks.io configuring checks: https://healthchecks.io/docs/configuring_checks/
+- Healthchecks.io signaling failures: https://healthchecks.io/docs/signaling_failures/
