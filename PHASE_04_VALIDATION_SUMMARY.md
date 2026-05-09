@@ -1,4 +1,4 @@
-# Phase 04 Validation Summary
+﻿# Phase 04 Validation Summary
 
 Phase 04 adds operational hardening after the external heartbeat validation from Phase 03.
 

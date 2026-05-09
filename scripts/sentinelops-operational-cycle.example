@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 
 # SentinelOps - Phase 04
 # Operational Cycle Wrapper
@@ -44,11 +44,25 @@ run_check() {
   set -e
 
   case "$exit_code" in
-    0) log "OK" "Check completed OK: check=${name} exit=${exit_code}" ;;
-    1) log "WARNING" "Check completed with WARNING: check=${name} exit=${exit_code}"; [[ "$STATUS" -lt 1 ]] && STATUS=1 ;;
-    2) log "HIGH" "Check completed with HIGH: check=${name} exit=${exit_code}"; [[ "$STATUS" -lt 2 ]] && STATUS=2 ;;
-    3) log "CRITICAL" "Check completed with CRITICAL: check=${name} exit=${exit_code}"; STATUS=3 ;;
-    *) log "CRITICAL" "Check returned unexpected exit code: check=${name} exit=${exit_code}"; STATUS=3 ;;
+    0)
+      log "OK" "Check completed OK: check=${name} exit=${exit_code}"
+      ;;
+    1)
+      log "WARNING" "Check completed with WARNING: check=${name} exit=${exit_code}"
+      [[ "$STATUS" -lt 1 ]] && STATUS=1
+      ;;
+    2)
+      log "HIGH" "Check completed with HIGH: check=${name} exit=${exit_code}"
+      [[ "$STATUS" -lt 2 ]] && STATUS=2
+      ;;
+    3)
+      log "CRITICAL" "Check completed with CRITICAL: check=${name} exit=${exit_code}"
+      STATUS=3
+      ;;
+    *)
+      log "CRITICAL" "Check returned unexpected exit code: check=${name} exit=${exit_code}"
+      STATUS=3
+      ;;
   esac
 }
 
