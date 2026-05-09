@@ -3,3 +3,9 @@
 *.conf text eol=lf
 *.md text eol=lf
 *.txt text eol=lf
+
+*.sh text eol=lf
+*.md text eol=lf
+*.example text eol=lf
+*.txt text eol=lf
+examples/cron.d/* text eol=lf
