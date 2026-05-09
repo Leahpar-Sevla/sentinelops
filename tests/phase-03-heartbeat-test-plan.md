@@ -63,15 +63,6 @@ runner_exit=3
 Healthchecks DOWN/FAIL notification
 ```
 
-Restore:
-
-```bash
-sudo mv /etc/sentinelops/sentinelops.conf.bak.phase3-failtest /etc/sentinelops/sentinelops.conf
-sudo chown root:root /etc/sentinelops/sentinelops.conf
-sudo chmod 600 /etc/sentinelops/sentinelops.conf
-sudo /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
-```
-
 ## Test 4 — missing ping / silent heartbeat
 
 Temporarily reduce Healthchecks schedule:

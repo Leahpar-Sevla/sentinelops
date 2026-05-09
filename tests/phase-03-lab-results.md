@@ -46,18 +46,3 @@ runner_exit=0
 ```
 
 This proves the external heartbeat is measuring whether the monitoring cycle executed, not whether the backup is healthy.
-
-## Final baseline
-
-Cron:
-
-```cron
-5 * * * * root /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh >> /var/log/sentinelops/heartbeat-cron.log 2>&1
-```
-
-Healthchecks:
-
-```text
-Period: 1 hour
-Grace Time: 15 minutes
-```

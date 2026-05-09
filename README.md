@@ -1,34 +1,75 @@
 # SentinelOps
 
-**Proactive Linux Server Monitoring and Alerting**
+![Shell](https://img.shields.io/badge/Shell-Bash-4EAA25?logo=gnu-bash&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-server%20monitoring-FCC624?logo=linux&logoColor=black)
+![Status](https://img.shields.io/badge/status-lab%20validated-blue)
+![License](https://img.shields.io/github/license/Leahpar-Sevla/sentinelops)
 
-SentinelOps is a lightweight Linux monitoring and alerting project focused on detecting infrastructure problems before they become outages, using small, auditable shell scripts and standard Linux tools.
+**Proactive Linux server monitoring and alerting with Bash, msmtp, cron, Healthchecks.io and operational runbooks.**
 
-> This repository is a portfolio-safe version. It does not contain production credentials, private domains, internal IPs, customer data, real alert recipients, SMTP passwords or private heartbeat URLs.
+SentinelOps is a lightweight monitoring project focused on small and medium Linux environments where reliability, auditability and simple operations matter more than heavyweight monitoring platforms.
+
+> Portfolio-safe repository: no production credentials, SMTP passwords, private domains, internal IP addresses, customer data, real alert recipients, private heartbeat URLs or raw production logs are stored here.
 
 ---
 
-## Project vision
+## Why this project exists
 
-A server should not wait for a human to discover operational problems manually. It should report its own health and escalate issues based on severity.
+A server should not wait for a human to manually discover that a backup failed, a disk filled up, or a monitoring script stopped running.
 
-SentinelOps is designed around four ideas:
+SentinelOps is built around four principles:
 
-1. **Proactive monitoring** — detect disk, backup and server health problems early.
-2. **Simple operations** — use Bash and standard Linux tools instead of heavy platforms for small environments.
-3. **Alert escalation** — separate routine maintenance from critical incidents.
-4. **Production discipline** — use logs, checklists, documentation and safe configuration examples.
+1. **Proactive monitoring** — detect backup, disk, fallback and heartbeat issues early.
+2. **Simple operations** — use Bash and standard Linux tools where a full NOC stack would be excessive.
+3. **Escalation discipline** — separate operational alerts from infrastructure silence.
+4. **Portfolio-safe engineering** — document architecture, tests, runbooks and decisions without exposing secrets.
 
 ---
 
 ## Current status
 
-| Phase | Name | Status |
+| Phase | Area | Status |
 |---|---|---|
 | Phase 1 | SMTP Foundation | Completed in lab |
 | Phase 2 | Core Availability Sentinel | Completed in lab |
-| Phase 3 | Heartbeat / scheduler / cooldown | Planned |
-| Phase 4 | Archive integrity / S.M.A.R.T. / hardening | Planned |
+| Phase 3 | External Heartbeat / Dead Man's Switch | Validated in lab |
+| Phase 4 | Logs, retention, S.M.A.R.T. and hardening | Planned |
+
+---
+
+## Architecture overview
+
+```text
+Linux server
+  ├── msmtp + sentinela-email
+  │     └── outbound alert delivery
+  │
+  ├── sentinelops-check
+  │     ├── filesystems
+  │     ├── daily backup folders
+  │     ├── backup jobs
+  │     ├── fallback buffers
+  │     └── WARNING / HIGH / CRITICAL escalation
+  │
+  ├── sentinelops-heartbeat-runner.sh
+  │     ├── /start ping
+  │     ├── executes sentinelops-check
+  │     ├── maps operational severity to heartbeat OK
+  │     └── sends /fail only for technical runner failures
+  │
+  └── cron
+        └── scheduled execution
+```
+
+External visibility:
+
+```text
+Healthchecks.io
+  ├── detects missing pings
+  ├── detects runner technical failure
+  ├── alerts when cron/server/network becomes silent
+  └── confirms recovery
+```
 
 ---
 
@@ -50,21 +91,10 @@ Validated concepts:
 See:
 
 ```text
-docs/fase-01-smtp.md
-docs/fase-01-test-report.md
-docs/runbook-phase-01.md
-docs/troubleshooting-smtp.md
 docs/phase-01-smtp-foundation.md
+docs/runbooks/phase-02-runbook.md
+docs/troubleshooting/phase-02-troubleshooting.md
 ```
-
-### Phase 1 production lessons
-
-| Problem | Root cause | Solution |
-|---|---|---|
-| SMTP authentication failed | Placeholder or wrong mailbox credentials | Use the real SMTP mailbox as both `user` and `from` |
-| TCP port failed using domain | System preferred IPv6 but IPv6 connectivity was incomplete | Prefer IPv4 using `/etc/gai.conf` when justified |
-| Manual log file permission denied | AppArmor profile blocked direct log file writes | Use `syslog LOG_MAIL` and inspect with `journalctl` |
-| Generic `mail` command failed | Extra local mail layer changed behavior | Use a dedicated `sentinela-email` wrapper with `msmtp` directly |
 
 ---
 
@@ -82,20 +112,62 @@ It monitors:
 - fallback folders;
 - warning and critical email escalation.
 
-Validated:
+Validated states:
 
-- clean state returns `OK`;
-- fallback file returns `WARNING`;
-- missing backup folder returns `CRITICAL`;
-- archived disk remounted as read-write returns `HIGH`;
-- warning email goes to support;
-- critical email goes to management and support.
+| State | Exit code | Meaning |
+|---|---:|---|
+| OK | 0 | No actionable issue |
+| WARNING | 1 | Routine support action |
+| HIGH | 2 | Elevated operational risk |
+| CRITICAL | 3 | Immediate operational action |
+| Unknown/internal | 4 | Unexpected internal condition |
 
 See:
 
 ```text
 docs/phase-02-core-availability-sentinel.md
 docs/validation/phase-02-lab-validation.md
+PHASE_02_VALIDATION_SUMMARY.md
+```
+
+---
+
+## Phase 3 — External Heartbeat / Dead Man's Switch
+
+Phase 3 adds an external heartbeat using Healthchecks.io.
+
+It validates:
+
+- `/start` ping when the runner begins;
+- success ping when the SentinelOps cycle executes;
+- `/fail` ping for technical runner/check failure;
+- operational CRITICAL alerts without marking Healthchecks as failed;
+- cron-driven execution;
+- missing-ping / silent heartbeat detection;
+- recovery to UP after restoring the heartbeat.
+
+The runner deliberately separates operational severity from heartbeat health:
+
+| SentinelOps result | Healthchecks result |
+|---|---|
+| Exit `0` | OK |
+| Exit `1`, `2`, or `3` | OK, because the cycle executed and SentinelOps handles the alert |
+| Missing script, permission issue, missing config or unexpected exit code | FAIL |
+| No ping | DOWN after Period + Grace |
+
+Default schedule:
+
+```cron
+5 * * * * root /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh >> /var/log/sentinelops/heartbeat-cron.log 2>&1
+```
+
+See:
+
+```text
+docs/phase-03-heartbeat.md
+PHASE_03_VALIDATION_SUMMARY.md
+tests/phase-03-heartbeat-test-plan.md
+tests/phase-03-lab-results.md
 ```
 
 ---
@@ -103,8 +175,6 @@ docs/validation/phase-02-lab-validation.md
 ## Standard paths
 
 SentinelOps separates Linux technical paths from Samba visual names.
-
-Technical paths:
 
 ```text
 /srv/sentinelops/shares/main
@@ -115,15 +185,8 @@ Technical paths:
 /mnt/so-archive
 /var/lib/sentinelops/backup-fallback
 /var/log/sentinelops
-```
-
-A Samba share can have a friendly name such as `Atendimentos`, while the internal Linux path remains standardized.
-
-See:
-
-```text
-docs/phase-02-standardization.md
-docs/server-folder-standardization.txt
+/etc/sentinelops
+/opt/sentinelops/bin
 ```
 
 ---
@@ -136,40 +199,43 @@ sentinelops/
 ├── CHANGELOG.md
 ├── LICENSE
 ├── SECURITY.md
-├── .gitignore
+├── PROJECT_STRUCTURE.md
+├── PHASE_02_VALIDATION_SUMMARY.md
+├── PHASE_03_VALIDATION_SUMMARY.md
 ├── config/
-│   ├── msmtprc.example
-│   ├── sentinelops.conf.example
+│   ├── backup_jobs.conf.example
 │   ├── mounts.conf.example
-│   └── backup_jobs.conf.example
+│   ├── msmtprc.example
+│   └── sentinelops.conf.example
 ├── scripts/
 │   ├── install-phase01.example.sh
 │   ├── sentinela-email.example
-│   └── sentinelops-check.example
+│   ├── sentinelops-check.example
+│   └── sentinelops-heartbeat-runner.sh
+├── examples/
+│   └── cron.d/
+│       └── sentinelops-heartbeat
 ├── tests/
-│   ├── check-phase01.sh
-│   ├── test-msmtp-direct.sh
-│   ├── test-network-smtp.sh
-│   ├── test-sentinela-email.sh
 │   ├── phase-02-test-plan.md
+│   ├── phase-03-heartbeat-test-plan.md
+│   ├── phase-03-lab-results.md
 │   └── test-phase02-lab-scenarios.sh
 ├── docs/
-│   ├── fase-01-smtp.md
-│   ├── fase-01-test-report.md
 │   ├── phase-01-smtp-foundation.md
 │   ├── phase-02-core-availability-sentinel.md
 │   ├── phase-02-standardization.md
+│   ├── phase-03-heartbeat.md
 │   ├── references.md
-│   ├── validation/
+│   ├── adr/
 │   ├── runbooks/
 │   ├── troubleshooting/
-│   └── adr/
+│   └── validation/
 └── production-template/
 ```
 
 ---
 
-## Quick start — Phase 1 SMTP
+## Quick start — SMTP foundation
 
 Install required packages:
 
@@ -200,22 +266,9 @@ Run a controlled test:
 echo "SentinelOps SMTP test" | sentinela-email destination@example.com "[TEST] SentinelOps SMTP"
 ```
 
-Check logs:
-
-```bash
-journalctl -n 100 | grep -Ei "smtp|msmtp"
-```
-
-Expected result:
-
-```text
-smtpstatus=250
-exitcode=EX_OK
-```
-
 ---
 
-## Quick start — Phase 2 checker
+## Quick start — SentinelOps checker
 
 Copy example configuration files to `/etc/sentinelops` and adjust them for the server:
 
@@ -242,27 +295,37 @@ echo $?
 
 ---
 
-## Exit codes
+## Quick start — External heartbeat
 
-| Status | Exit code |
-|---|---:|
-| OK | 0 |
-| WARNING | 1 |
-| HIGH | 2 |
-| CRITICAL | 3 |
-| Unknown/internal | 4 |
+Install the runner:
 
----
+```bash
+sudo install -d -m 750 /opt/sentinelops/bin
+sudo cp scripts/sentinelops-heartbeat-runner.sh /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
+sudo chown root:root /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
+sudo chmod 750 /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh
+```
 
-## Email escalation
+Configure the local secret only on the server:
 
-| Severity | Recipient behavior |
-|---|---|
-| WARNING | Support |
-| HIGH | Support |
-| CRITICAL | Management + Support |
+```bash
+sudo nano /etc/sentinelops/sentinelops.conf
+```
 
-Phase 2 intentionally does not implement alert cooldown yet. That belongs to Phase 3.
+Example placeholder:
+
+```bash
+HEALTHCHECKS_URL="https://hc-ping.com/REPLACE_WITH_SERVER_UUID"
+```
+
+Install the cron example:
+
+```bash
+sudo cp examples/cron.d/sentinelops-heartbeat /etc/cron.d/sentinelops-heartbeat
+sudo chown root:root /etc/cron.d/sentinelops-heartbeat
+sudo chmod 644 /etc/cron.d/sentinelops-heartbeat
+sudo systemctl restart cron
+```
 
 ---
 
@@ -270,7 +333,7 @@ Phase 2 intentionally does not implement alert cooldown yet. That belongs to Pha
 
 Never commit:
 
-- SMTP password;
+- SMTP passwords;
 - real `/etc/msmtprc`;
 - mailbox app passwords;
 - real customer names;

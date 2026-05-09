@@ -54,12 +54,47 @@ cron
 
 This prevents the external heartbeat from confusing "backup is missing" with "the server is dead." The operational alert still goes through the SentinelOps email flow.
 
+## Standard naming
+
+Each server must have its own check:
+
+```text
+SENTINELOPS-[CLIENTE]-[HOSTNAME]-HEARTBEAT
+```
+
 ## Schedule standard
 
 ```text
 Runner cron: every 1 hour, at minute 05
 Healthchecks period: 1 hour
 Healthchecks grace time: 15 minutes
+```
+
+Cron entry:
+
+```cron
+5 * * * * root /opt/sentinelops/bin/sentinelops-heartbeat-runner.sh >> /var/log/sentinelops/heartbeat-cron.log 2>&1
+```
+
+## Security
+
+The Healthchecks Ping URL is an operational secret.
+
+Allowed:
+
+```text
+/etc/sentinelops/sentinelops.conf
+private deployment notes
+password manager / secure vault
+```
+
+Not allowed:
+
+```text
+README.md
+public GitHub commits
+screenshots shared outside the team
+hardcoded production URLs in scripts
 ```
 
 ## Lab validation summary

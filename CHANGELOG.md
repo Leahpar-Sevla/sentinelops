@@ -1,5 +1,44 @@
 # Changelog
 
+## v0.3.0-phase-03-external-heartbeat
+
+Phase 3 adds the external heartbeat / Dead Man's Switch layer.
+
+### Added
+
+- Healthchecks.io heartbeat design.
+- `sentinelops-heartbeat-runner.sh`.
+- `/start`, success and `/fail` ping model.
+- Secure `HEALTHCHECKS_URL` placeholder in `sentinelops.conf.example`.
+- Example `/etc/cron.d/sentinelops-heartbeat`.
+- Phase 3 architecture documentation.
+- Phase 3 validation summary.
+- Phase 3 test plan and lab results.
+
+### Changed
+
+- The heartbeat runner now separates operational severity from technical failure.
+- `sentinelops-check` exit codes `1`, `2`, and `3` keep Healthchecks OK because the monitoring cycle executed and SentinelOps handles the operational alert.
+- Missing script, permission error, missing config, or unexpected exit code still signal Healthchecks FAIL.
+- Repository line ending rules were hardened with `.gitattributes`.
+
+### Validated in lab
+
+- Direct Healthchecks `/start` ping.
+- Direct Healthchecks success ping.
+- Runner manual execution with `runner_exit=0`.
+- Cron execution using a temporary every-minute schedule.
+- Controlled technical failure with invalid `SENTINELA_SCRIPT`.
+- Healthchecks DOWN notification.
+- Recovery to UP after restoring the config.
+- Operational CRITICAL while Healthchecks remains UP.
+- Missing-ping / silent heartbeat test.
+- Final cron restored to hourly schedule.
+
+### Pending outside Phase 3
+
+- Investigate why the expected backup folder `08-05-26` was not created in the lab.
+
 ## v0.2.1-phase-docs-merge
 
 Documentation maintenance release.
@@ -30,7 +69,7 @@ Phase 2 adds the first operational SentinelOps checker.
 - Production template for `/etc/sentinelops`.
 - Phase 2 runbook, troubleshooting guide, ADRs and test plan.
 
-## 0.1.1 — Phase 01 portfolio hardening
+## v0.1.1-phase-01-portfolio-hardening
 
 ### Added
 
