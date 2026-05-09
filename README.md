@@ -1,4 +1,4 @@
-# SentinelOps
+﻿# SentinelOps
 
 ![Shell](https://img.shields.io/badge/Shell-Bash-4EAA25?logo=gnu-bash&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-server%20monitoring-FCC624?logo=linux&logoColor=black)
@@ -19,10 +19,10 @@ A server should not wait for a human to manually discover that a backup failed, 
 
 SentinelOps is built around four principles:
 
-1. **Proactive monitoring** — detect backup, disk, fallback and heartbeat issues early.
-2. **Simple operations** — use Bash and standard Linux tools where a full NOC stack would be excessive.
-3. **Escalation discipline** — separate operational alerts from infrastructure silence.
-4. **Portfolio-safe engineering** — document architecture, tests, runbooks and decisions without exposing secrets.
+1. **Proactive monitoring** â€” detect backup, disk, fallback and heartbeat issues early.
+2. **Simple operations** â€” use Bash and standard Linux tools where a full NOC stack would be excessive.
+3. **Escalation discipline** â€” separate operational alerts from infrastructure silence.
+4. **Portfolio-safe engineering** â€” document architecture, tests, runbooks and decisions without exposing secrets.
 
 ---
 
@@ -33,7 +33,7 @@ SentinelOps is built around four principles:
 | Phase 1 | SMTP Foundation | Completed in lab |
 | Phase 2 | Core Availability Sentinel | Completed in lab |
 | Phase 3 | External Heartbeat / Dead Man's Switch | Validated in lab |
-| Phase 4 | Logs, retention, S.M.A.R.T. and hardening | Planned |
+| Phase 4 | Logs, retention, S.M.A.R.T. and hardening | Validated in lab |
 
 ---
 
@@ -41,39 +41,39 @@ SentinelOps is built around four principles:
 
 ```text
 Linux server
-  ├── msmtp + sentinela-email
-  │     └── outbound alert delivery
-  │
-  ├── sentinelops-check
-  │     ├── filesystems
-  │     ├── daily backup folders
-  │     ├── backup jobs
-  │     ├── fallback buffers
-  │     └── WARNING / HIGH / CRITICAL escalation
-  │
-  ├── sentinelops-heartbeat-runner.sh
-  │     ├── /start ping
-  │     ├── executes sentinelops-check
-  │     ├── maps operational severity to heartbeat OK
-  │     └── sends /fail only for technical runner failures
-  │
-  └── cron
-        └── scheduled execution
+  â”œâ”€â”€ msmtp + sentinela-email
+  â”‚     â””â”€â”€ outbound alert delivery
+  â”‚
+  â”œâ”€â”€ sentinelops-check
+  â”‚     â”œâ”€â”€ filesystems
+  â”‚     â”œâ”€â”€ daily backup folders
+  â”‚     â”œâ”€â”€ backup jobs
+  â”‚     â”œâ”€â”€ fallback buffers
+  â”‚     â””â”€â”€ WARNING / HIGH / CRITICAL escalation
+  â”‚
+  â”œâ”€â”€ sentinelops-heartbeat-runner.sh
+  â”‚     â”œâ”€â”€ /start ping
+  â”‚     â”œâ”€â”€ executes sentinelops-check
+  â”‚     â”œâ”€â”€ maps operational severity to heartbeat OK
+  â”‚     â””â”€â”€ sends /fail only for technical runner failures
+  â”‚
+  â””â”€â”€ cron
+        â””â”€â”€ scheduled execution
 ```
 
 External visibility:
 
 ```text
 Healthchecks.io
-  ├── detects missing pings
-  ├── detects runner technical failure
-  ├── alerts when cron/server/network becomes silent
-  └── confirms recovery
+  â”œâ”€â”€ detects missing pings
+  â”œâ”€â”€ detects runner technical failure
+  â”œâ”€â”€ alerts when cron/server/network becomes silent
+  â””â”€â”€ confirms recovery
 ```
 
 ---
 
-## Phase 1 — SMTP Foundation
+## Phase 1 â€” SMTP Foundation
 
 Phase 1 validates outbound email delivery from a Linux server using `msmtp`.
 
@@ -98,7 +98,7 @@ docs/troubleshooting/phase-02-troubleshooting.md
 
 ---
 
-## Phase 2 — Core Availability Sentinel
+## Phase 2 â€” Core Availability Sentinel
 
 Phase 2 introduces the first operational SentinelOps checker.
 
@@ -132,7 +132,7 @@ PHASE_02_VALIDATION_SUMMARY.md
 
 ---
 
-## Phase 3 — External Heartbeat / Dead Man's Switch
+## Phase 3 â€” External Heartbeat / Dead Man's Switch
 
 Phase 3 adds an external heartbeat using Healthchecks.io.
 
@@ -172,6 +172,38 @@ tests/phase-03-lab-results.md
 
 ---
 
+## Phase 4 â€” Operational Hardening
+
+Phase 04 adds operational hardening after heartbeat validation.
+
+It validates:
+
+- log retention with logrotate;
+- hardened log permissions;
+- heartbeat runner locking;
+- correct mapping between operational severity and heartbeat health;
+- operational cycle wrapper;
+- S.M.A.R.T. disk health checks;
+- detection of disk risk without relying only on overall SMART PASSED;
+- reduced cron log noise.
+
+Expected contract:
+
+| SentinelOps operational cycle | Heartbeat runner |
+|---|---|
+| Exit 0 | Exit 0 |
+| Exit 1, 2, or 3 | Exit 0, because the cycle executed |
+| Technical runner/config/script/curl failure | non-zero and Healthchecks /fail |
+
+See:
+
+- docs/phase-04-operational-hardening.md
+- docs/validation/phase-04-lab-validation.md
+- PHASE_04_VALIDATION_SUMMARY.md
+
+
+---
+
 ## Standard paths
 
 SentinelOps separates Linux technical paths from Samba visual names.
@@ -195,47 +227,47 @@ SentinelOps separates Linux technical paths from Samba visual names.
 
 ```text
 sentinelops/
-├── README.md
-├── CHANGELOG.md
-├── LICENSE
-├── SECURITY.md
-├── PROJECT_STRUCTURE.md
-├── PHASE_02_VALIDATION_SUMMARY.md
-├── PHASE_03_VALIDATION_SUMMARY.md
-├── config/
-│   ├── backup_jobs.conf.example
-│   ├── mounts.conf.example
-│   ├── msmtprc.example
-│   └── sentinelops.conf.example
-├── scripts/
-│   ├── install-phase01.example.sh
-│   ├── sentinela-email.example
-│   ├── sentinelops-check.example
-│   └── sentinelops-heartbeat-runner.sh
-├── examples/
-│   └── cron.d/
-│       └── sentinelops-heartbeat
-├── tests/
-│   ├── phase-02-test-plan.md
-│   ├── phase-03-heartbeat-test-plan.md
-│   ├── phase-03-lab-results.md
-│   └── test-phase02-lab-scenarios.sh
-├── docs/
-│   ├── phase-01-smtp-foundation.md
-│   ├── phase-02-core-availability-sentinel.md
-│   ├── phase-02-standardization.md
-│   ├── phase-03-heartbeat.md
-│   ├── references.md
-│   ├── adr/
-│   ├── runbooks/
-│   ├── troubleshooting/
-│   └── validation/
-└── production-template/
+â”œâ”€â”€ README.md
+â”œâ”€â”€ CHANGELOG.md
+â”œâ”€â”€ LICENSE
+â”œâ”€â”€ SECURITY.md
+â”œâ”€â”€ PROJECT_STRUCTURE.md
+â”œâ”€â”€ PHASE_02_VALIDATION_SUMMARY.md
+â”œâ”€â”€ PHASE_03_VALIDATION_SUMMARY.md
+â”œâ”€â”€ config/
+â”‚   â”œâ”€â”€ backup_jobs.conf.example
+â”‚   â”œâ”€â”€ mounts.conf.example
+â”‚   â”œâ”€â”€ msmtprc.example
+â”‚   â””â”€â”€ sentinelops.conf.example
+â”œâ”€â”€ scripts/
+â”‚   â”œâ”€â”€ install-phase01.example.sh
+â”‚   â”œâ”€â”€ sentinela-email.example
+â”‚   â”œâ”€â”€ sentinelops-check.example
+â”‚   â””â”€â”€ sentinelops-heartbeat-runner.sh
+â”œâ”€â”€ examples/
+â”‚   â””â”€â”€ cron.d/
+â”‚       â””â”€â”€ sentinelops-heartbeat
+â”œâ”€â”€ tests/
+â”‚   â”œâ”€â”€ phase-02-test-plan.md
+â”‚   â”œâ”€â”€ phase-03-heartbeat-test-plan.md
+â”‚   â”œâ”€â”€ phase-03-lab-results.md
+â”‚   â””â”€â”€ test-phase02-lab-scenarios.sh
+â”œâ”€â”€ docs/
+â”‚   â”œâ”€â”€ phase-01-smtp-foundation.md
+â”‚   â”œâ”€â”€ phase-02-core-availability-sentinel.md
+â”‚   â”œâ”€â”€ phase-02-standardization.md
+â”‚   â”œâ”€â”€ phase-03-heartbeat.md
+â”‚   â”œâ”€â”€ references.md
+â”‚   â”œâ”€â”€ adr/
+â”‚   â”œâ”€â”€ runbooks/
+â”‚   â”œâ”€â”€ troubleshooting/
+â”‚   â””â”€â”€ validation/
+â””â”€â”€ production-template/
 ```
 
 ---
 
-## Quick start — SMTP foundation
+## Quick start â€” SMTP foundation
 
 Install required packages:
 
@@ -268,7 +300,7 @@ echo "SentinelOps SMTP test" | sentinela-email destination@example.com "[TEST] S
 
 ---
 
-## Quick start — SentinelOps checker
+## Quick start â€” SentinelOps checker
 
 Copy example configuration files to `/etc/sentinelops` and adjust them for the server:
 
@@ -295,7 +327,7 @@ echo $?
 
 ---
 
-## Quick start — External heartbeat
+## Quick start â€” External heartbeat
 
 Install the runner:
 
@@ -354,3 +386,6 @@ See:
 ```text
 docs/references.md
 ```
+
+
+

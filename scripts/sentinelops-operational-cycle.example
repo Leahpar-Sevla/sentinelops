@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+# SentinelOps - Phase 04
+# Operational Cycle Wrapper
+#
+# Exit codes:
+# 0 = OK
+# 1 = WARNING
+# 2 = HIGH
+# 3 = CRITICAL
+
+set -Eeuo pipefail
+umask 027
+
+LOG_FILE="/var/log/sentinelops/operational-cycle.log"
+STATUS=0
+
+install -d -o root -g root -m 750 "$(dirname "$LOG_FILE")"
+
+log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') [$1] $2" >> "$LOG_FILE"
+}
+
+run_check() {
+  local name="$1"
+  local cmd="$2"
+  local exit_code=0
+
+  log "INFO" "Starting check=${name} cmd=${cmd}"
+
+  if [[ ! -x "$cmd" ]]; then
+    log "CRITICAL" "Check missing or not executable: check=${name} cmd=${cmd}"
+    STATUS=3
+    return
+  fi
+
+  set +e
+  {
+    echo "----- output begin: check=${name} -----"
+    "$cmd"
+    exit_code=$?
+    echo "----- output end: check=${name} exit=${exit_code} -----"
+  } >> "$LOG_FILE" 2>&1
+  set -e
+
+  case "$exit_code" in
+    0) log "OK" "Check completed OK: check=${name} exit=${exit_code}" ;;
+    1) log "WARNING" "Check completed with WARNING: check=${name} exit=${exit_code}"; [[ "$STATUS" -lt 1 ]] && STATUS=1 ;;
+    2) log "HIGH" "Check completed with HIGH: check=${name} exit=${exit_code}"; [[ "$STATUS" -lt 2 ]] && STATUS=2 ;;
+    3) log "CRITICAL" "Check completed with CRITICAL: check=${name} exit=${exit_code}"; STATUS=3 ;;
+    *) log "CRITICAL" "Check returned unexpected exit code: check=${name} exit=${exit_code}"; STATUS=3 ;;
+  esac
+}
+
+log "INFO" "Starting SentinelOps operational cycle."
+
+run_check "backup-flow" "/usr/local/bin/sentinelops-check"
+run_check "smart-health" "/usr/local/bin/sentinelops-smart-check"
+
+case "$STATUS" in
+  0) log "OK" "Operational cycle finished without alerts."; exit 0 ;;
+  1) log "WARNING" "Operational cycle finished with WARNING."; exit 1 ;;
+  2) log "HIGH" "Operational cycle finished with HIGH."; exit 2 ;;
+  3) log "CRITICAL" "Operational cycle finished with CRITICAL."; exit 3 ;;
+  *) log "CRITICAL" "Operational cycle finished with unexpected status=${STATUS}."; exit 3 ;;
+esac

@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+# SentinelOps - Phase 04
+# S.M.A.R.T. Hardware Health Check
+#
+# Portfolio-safe example.
+# Adjust disks and roles for each real server.
+#
+# Exit codes:
+# 0 = OK
+# 2 = HIGH
+# 3 = CRITICAL
+
+set -Eeuo pipefail
+umask 027
+
+LOG_FILE="/var/log/sentinelops/smart-health.log"
+STATUS=0
+
+install -d -o root -g root -m 750 "$(dirname "$LOG_FILE")"
+
+log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') [$1] $2" >> "$LOG_FILE"
+}
+
+check_sata() {
+  local disk="$1"
+  local role="$2"
+
+  log "INFO" "Checking SATA/HDD disk=${disk} role=${role}"
+
+  if [[ ! -b "$disk" ]]; then
+    log "HIGH" "Disk not found: disk=${disk} role=${role}"
+    STATUS=2
+    return
+  fi
+
+  local health realloc pending offline crc temp
+
+  health="$(smartctl -H "$disk" 2>/dev/null | awk -F': ' '/overall-health|SMART Health Status/ {print $2}' | head -n1 || true)"
+  realloc="$(smartctl -A "$disk" | awk '/Reallocated_Sector_Ct/ {print $10}' | tail -n1)"
+  pending="$(smartctl -A "$disk" | awk '/Current_Pending_Sector/ {print $10}' | tail -n1)"
+  offline="$(smartctl -A "$disk" | awk '/Offline_Uncorrectable/ {print $10}' | tail -n1)"
+  crc="$(smartctl -A "$disk" | awk '/UDMA_CRC_Error_Count/ {print $10}' | tail -n1)"
+  temp="$(smartctl -A "$disk" | awk '/Temperature_Celsius/ {print $10}' | tail -n1)"
+
+  realloc="${realloc:-0}"
+  pending="${pending:-0}"
+  offline="${offline:-0}"
+  crc="${crc:-0}"
+  temp="${temp:-unknown}"
+
+  if [[ "$health" != "PASSED" && -n "$health" ]]; then
+    log "CRITICAL" "SMART health did not pass: disk=${disk} role=${role} health=${health}"
+    STATUS=3
+  fi
+
+  if (( pending > 0 || offline > 0 )); then
+    log "CRITICAL" "Pending/offline uncorrectable sectors detected: disk=${disk} role=${role} pending=${pending} offline_uncorrectable=${offline}"
+    STATUS=3
+  elif (( realloc > 0 )); then
+    log "HIGH" "Reallocated sectors detected: disk=${disk} role=${role} reallocated=${realloc}"
+    [[ "$STATUS" -lt 2 ]] && STATUS=2
+  else
+    log "OK" "SMART basic OK: disk=${disk} role=${role} reallocated=${realloc} pending=${pending} offline=${offline} crc=${crc} temp=${temp}"
+  fi
+
+  if smartctl -l selftest "$disk" 2>/dev/null | awk 'NR > 1 && /# 1/ && /Completed: read failure|Completed: unknown failure|Completed: electrical failure|Completed: servo\/seek failure/ {found=1} END {exit !found}'; then
+    log "CRITICAL" "Last SMART self-test failed: disk=${disk} role=${role}"
+    STATUS=3
+  fi
+}
+
+check_nvme() {
+  local disk="$1"
+  local role="$2"
+
+  log "INFO" "Checking NVMe disk=${disk} role=${role}"
+
+  if [[ ! -b "$disk" ]]; then
+    log "HIGH" "NVMe disk not found: disk=${disk} role=${role}"
+    STATUS=2
+    return
+  fi
+
+  local critical media_errors spare used temp
+
+  critical="$(smartctl -A "$disk" | awk -F': *' '/Critical Warning/ {print $2}' | head -n1)"
+  media_errors="$(smartctl -A "$disk" | awk -F': *' '/Media and Data Integrity Errors/ {gsub(/,/, "", $2); print $2}' | head -n1)"
+  spare="$(smartctl -A "$disk" | awk -F': *' '/Available Spare:/ {gsub(/%/, "", $2); print $2}' | head -n1)"
+  used="$(smartctl -A "$disk" | awk -F': *' '/Percentage Used/ {gsub(/%/, "", $2); print $2}' | head -n1)"
+  temp="$(smartctl -A "$disk" | awk -F': *' '/Temperature:/ {print $2}' | head -n1)"
+
+  critical="${critical:-unknown}"
+  media_errors="${media_errors:-0}"
+  spare="${spare:-0}"
+  used="${used:-0}"
+  temp="${temp:-unknown}"
+
+  if [[ "$critical" != "0x00" ]]; then
+    log "CRITICAL" "NVMe Critical Warning active: disk=${disk} role=${role} critical=${critical}"
+    STATUS=3
+  elif (( media_errors > 0 )); then
+    log "CRITICAL" "NVMe media/data integrity errors: disk=${disk} role=${role} media_errors=${media_errors}"
+    STATUS=3
+  elif (( spare < 20 || used >= 90 )); then
+    log "HIGH" "NVMe spare low or wear high: disk=${disk} role=${role} spare=${spare}% used=${used}%"
+    [[ "$STATUS" -lt 2 ]] && STATUS=2
+  else
+    log "OK" "NVMe SMART OK: disk=${disk} role=${role} critical=${critical} spare=${spare}% used=${used}% media_errors=${media_errors} temp=${temp}"
+  fi
+}
+
+log "INFO" "Starting SentinelOps SMART check."
+
+check_sata /dev/sda archive-readonly
+check_sata /dev/sdb data-temp
+check_sata /dev/sdc backup-active
+check_nvme /dev/nvme0n1 system-root
+
+case "$STATUS" in
+  0) log "OK" "SentinelOps SMART check finished without alerts."; exit 0 ;;
+  2) log "HIGH" "SentinelOps SMART check finished with HIGH alert."; exit 2 ;;
+  3) log "CRITICAL" "SentinelOps SMART check finished with CRITICAL alert."; exit 3 ;;
+  *) log "CRITICAL" "SentinelOps SMART check finished with unexpected status=${STATUS}."; exit 3 ;;
+esac
