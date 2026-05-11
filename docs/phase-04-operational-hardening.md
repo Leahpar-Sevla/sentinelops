@@ -1,4 +1,4 @@
-﻿# Phase 04 â€” Operational Hardening
+# Phase 04 — Operational Hardening
 
 ## Scope
 

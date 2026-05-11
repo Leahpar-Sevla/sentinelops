@@ -1,5 +1,25 @@
 # Changelog
 
+## Phase 04 — Operational Hardening
+
+### Added
+
+- Added Phase 04 operational hardening documentation.
+- Added lab validation notes for logrotate, runner hardening and S.M.A.R.T.
+- Added example logrotate rule for `/var/log/sentinelops/*.log`.
+- Added `sentinelops-operational-cycle.example`.
+- Added `sentinelops-smart-check.example`.
+- Added Phase 04 validation summary.
+
+### Changed
+
+- Updated repository status to mark Phase 04 as validated in lab.
+- Documented that operational CRITICAL does not mark Healthchecks as failed when the cycle executed.
+
+### Security
+
+- Documented that real Healthchecks URLs, alert recipients, internal paths with customer data, raw logs and disk serial numbers must not be committed.
+
 ## v0.3.0-phase-03-external-heartbeat
 
 Phase 3 adds the external heartbeat / Dead Man's Switch layer.
@@ -108,44 +128,3 @@ Phase 1 established the SMTP alert foundation.
 - Authenticated delivery through external SMTP provider.
 - Logging through syslog/journalctl.
 - Wrapper-based email delivery for future monitoring scripts.
-
-## Phase 04 â€” Operational Hardening
-
-### Added
-
-- Added Phase 04 operational hardening documentation.
-- Added lab validation notes for logrotate, runner hardening and S.M.A.R.T.
-- Added example logrotate rule for /var/log/sentinelops/*.log.
-- Added sentinelops-operational-cycle.example.
-- Added sentinelops-smart-check.example.
-- Added Phase 04 validation summary.
-
-### Changed
-
-- Updated repository status to mark Phase 04 as validated in lab.
-- Documented that operational CRITICAL does not mark Healthchecks as failed when the cycle executed.
-
-### Security
-
-- Documented that real Healthchecks URLs, alert recipients, internal paths with customer data, raw logs and disk serial numbers must not be committed.
-
-
-## Phase 04 â€” Operational Hardening
-
-### Added
-
-- Added Phase 04 operational hardening documentation.
-- Added lab validation notes for logrotate, runner hardening and S.M.A.R.T.
-- Added example logrotate rule for /var/log/sentinelops/*.log.
-- Added sentinelops-operational-cycle.example.
-- Added sentinelops-smart-check.example.
-- Added Phase 04 validation summary.
-
-### Changed
-
-- Updated repository status to mark Phase 04 as validated in lab.
-- Documented that operational CRITICAL does not mark Healthchecks as failed when the cycle executed.
-
-### Security
-
-- Documented that real Healthchecks URLs, alert recipients, internal paths with customer data, raw logs and disk serial numbers must not be committed.
