@@ -72,9 +72,24 @@ run_check "backup-flow" "/usr/local/bin/sentinelops-check"
 run_check "smart-health" "/usr/local/bin/sentinelops-smart-check"
 
 case "$STATUS" in
-  0) log "OK" "Operational cycle finished without alerts."; exit 0 ;;
-  1) log "WARNING" "Operational cycle finished with WARNING."; exit 1 ;;
-  2) log "HIGH" "Operational cycle finished with HIGH."; exit 2 ;;
-  3) log "CRITICAL" "Operational cycle finished with CRITICAL."; exit 3 ;;
-  *) log "CRITICAL" "Operational cycle finished with unexpected status=${STATUS}."; exit 3 ;;
+  0)
+    log "OK" "Operational cycle finished without alerts."
+    exit 0
+    ;;
+  1)
+    log "WARNING" "Operational cycle finished with WARNING."
+    exit 1
+    ;;
+  2)
+    log "HIGH" "Operational cycle finished with HIGH."
+    exit 2
+    ;;
+  3)
+    log "CRITICAL" "Operational cycle finished with CRITICAL."
+    exit 3
+    ;;
+  *)
+    log "CRITICAL" "Operational cycle finished with unexpected status=${STATUS}."
+    exit 3
+    ;;
 esac

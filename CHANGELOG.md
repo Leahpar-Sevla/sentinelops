@@ -1,6 +1,6 @@
 # Changelog
 
-## Phase 04 — Operational Hardening
+## Phase 04 - Operational Hardening
 
 ### Added
 
@@ -15,6 +15,7 @@
 
 - Updated repository status to mark Phase 04 as validated in lab.
 - Documented that operational CRITICAL does not mark Healthchecks as failed when the cycle executed.
+- Restored Markdown and Bash line breaks for Phase 04 files.
 
 ### Security
 

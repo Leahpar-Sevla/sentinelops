@@ -119,8 +119,20 @@ check_sata /dev/sdc backup-active
 check_nvme /dev/nvme0n1 system-root
 
 case "$STATUS" in
-  0) log "OK" "SentinelOps SMART check finished without alerts."; exit 0 ;;
-  2) log "HIGH" "SentinelOps SMART check finished with HIGH alert."; exit 2 ;;
-  3) log "CRITICAL" "SentinelOps SMART check finished with CRITICAL alert."; exit 3 ;;
-  *) log "CRITICAL" "SentinelOps SMART check finished with unexpected status=${STATUS}."; exit 3 ;;
+  0)
+    log "OK" "SentinelOps SMART check finished without alerts."
+    exit 0
+    ;;
+  2)
+    log "HIGH" "SentinelOps SMART check finished with HIGH alert."
+    exit 2
+    ;;
+  3)
+    log "CRITICAL" "SentinelOps SMART check finished with CRITICAL alert."
+    exit 3
+    ;;
+  *)
+    log "CRITICAL" "SentinelOps SMART check finished with unexpected status=${STATUS}."
+    exit 3
+    ;;
 esac
