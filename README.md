@@ -19,10 +19,10 @@ A server should not wait for a human to manually discover that a backup failed, 
 
 SentinelOps is built around four principles:
 
-1. **Proactive monitoring** - detect backup, disk, fallback and heartbeat issues early.
-2. **Simple operations** - use Bash and standard Linux tools where a full NOC stack would be excessive.
-3. **Escalation discipline** - separate operational alerts from infrastructure silence.
-4. **Portfolio-safe engineering** - document architecture, tests, runbooks and decisions without exposing secrets.
+1. **Proactive monitoring** — detect backup, disk, fallback and heartbeat issues early.
+2. **Simple operations** — use Bash and standard Linux tools where a full NOC stack would be excessive.
+3. **Escalation discipline** — separate operational alerts from infrastructure silence.
+4. **Portfolio-safe engineering** — document architecture, tests, runbooks and decisions without exposing secrets.
 
 ---
 
@@ -78,7 +78,7 @@ Healthchecks.io
 
 ---
 
-## Phase 1 - SMTP Foundation
+## Phase 1 — SMTP Foundation
 
 Phase 1 validates outbound email delivery from a Linux server using `msmtp`.
 
@@ -103,11 +103,9 @@ docs/troubleshooting/phase-02-troubleshooting.md
 
 ---
 
-## Phase 2 - Core Availability Sentinel
+## Phase 2 — Core Availability Sentinel
 
-Phase 2 introduces the first operational SentinelOps checker.
-
-It monitors:
+Phase 2 introduces the first operational SentinelOps checker. It monitors:
 
 - critical filesystems;
 - active backup disks;
@@ -137,7 +135,7 @@ PHASE_02_VALIDATION_SUMMARY.md
 
 ---
 
-## Phase 3 - External Heartbeat / Dead Man's Switch
+## Phase 3 — External Heartbeat / Dead Man's Switch
 
 Phase 3 adds an external heartbeat using Healthchecks.io.
 
@@ -177,7 +175,7 @@ tests/phase-03-lab-results.md
 
 ---
 
-## Phase 4 - Operational Hardening
+## Phase 4 — Operational Hardening
 
 Phase 4 adds operational hardening after heartbeat validation.
 
@@ -279,7 +277,7 @@ sentinelops/
 
 ---
 
-## Quick start - SMTP foundation
+## Quick start — SMTP foundation
 
 Install required packages:
 
@@ -312,7 +310,7 @@ echo "SentinelOps SMTP test" | sentinela-email destination@example.com "[TEST] S
 
 ---
 
-## Quick start - SentinelOps checker
+## Quick start — SentinelOps checker
 
 Copy example configuration files to `/etc/sentinelops` and adjust them for the server:
 
@@ -339,7 +337,7 @@ echo $?
 
 ---
 
-## Quick start - External heartbeat
+## Quick start — External heartbeat
 
 Install the runner:
 
@@ -373,7 +371,7 @@ sudo systemctl restart cron
 
 ---
 
-## Quick start - Operational hardening
+## Quick start — Operational hardening
 
 Install the Phase 4 examples:
 

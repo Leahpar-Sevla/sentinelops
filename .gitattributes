@@ -1,8 +1,5 @@
-# Normalize line endings for cross-platform development.
 * text=auto
 *.sh text eol=lf
-*.md text eol=lf
-*.txt text eol=lf
 *.example text eol=lf
-examples/cron.d/* text eol=lf
 examples/logrotate.d/* text eol=lf
+*.md text eol=lf
