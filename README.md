@@ -5,23 +5,17 @@
 ![Status](https://img.shields.io/badge/status-lab%20validated-blue)
 ![License](https://img.shields.io/github/license/Leahpar-Sevla/sentinelops)
 
-**Proactive Linux server monitoring and alerting with Bash, msmtp, cron,
-Healthchecks.io and operational runbooks.**
+**Proactive Linux server monitoring and alerting with Bash, msmtp, cron, Healthchecks.io and operational runbooks.**
 
-SentinelOps is a lightweight monitoring project focused on small and medium
-Linux environments where reliability, auditability and simple operations matter
-more than heavyweight monitoring platforms.
+SentinelOps is a lightweight monitoring project focused on small and medium Linux environments where reliability, auditability and simple operations matter more than heavyweight monitoring platforms.
 
-> Portfolio-safe repository: no production credentials, SMTP passwords, private
-> domains, internal IP addresses, customer data, real alert recipients, private
-> heartbeat URLs or raw production logs are stored here.
+> Portfolio-safe repository: no production credentials, SMTP passwords, private domains, internal IP addresses, customer data, real alert recipients, private heartbeat URLs or raw production logs are stored here.
 
 ---
 
 ## Why this project exists
 
-A server should not wait for a human to manually discover that a backup failed,
-a disk filled up, or a monitoring script stopped running.
+A server should not wait for a human to manually discover that a backup failed, a disk filled up, or a monitoring script stopped running.
 
 SentinelOps is built around four principles:
 
@@ -111,7 +105,9 @@ docs/troubleshooting/phase-02-troubleshooting.md
 
 ## Phase 2 — Core Availability Sentinel
 
-Phase 2 introduces the first operational SentinelOps checker. It monitors:
+Phase 2 introduces the first operational SentinelOps checker.
+
+It monitors:
 
 - critical filesystems;
 - active backup disks;
@@ -246,7 +242,12 @@ sentinelops/
 ├── PHASE_03_VALIDATION_SUMMARY.md
 ├── PHASE_04_VALIDATION_SUMMARY.md
 ├── config/
+│   ├── backup_jobs.conf.example
+│   ├── mounts.conf.example
+│   ├── msmtprc.example
+│   └── sentinelops.conf.example
 ├── scripts/
+│   ├── install-phase01.example.sh
 │   ├── sentinela-email.example
 │   ├── sentinelops-check.example
 │   ├── sentinelops-heartbeat-runner.sh
@@ -254,11 +255,18 @@ sentinelops/
 │   └── sentinelops-smart-check.example
 ├── examples/
 │   ├── cron.d/
+│   │   └── sentinelops-heartbeat
 │   └── logrotate.d/
+│       └── sentinelops
 ├── tests/
+│   ├── phase-02-test-plan.md
+│   ├── phase-03-heartbeat-test-plan.md
+│   ├── phase-03-lab-results.md
+│   └── test-phase02-lab-scenarios.sh
 ├── docs/
 │   ├── phase-01-smtp-foundation.md
 │   ├── phase-02-core-availability-sentinel.md
+│   ├── phase-02-standardization.md
 │   ├── phase-03-heartbeat.md
 │   ├── phase-04-operational-hardening.md
 │   ├── references.md

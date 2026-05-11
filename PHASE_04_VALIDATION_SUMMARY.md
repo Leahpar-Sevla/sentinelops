@@ -11,7 +11,7 @@ Phase 04 adds operational hardening after the external heartbeat validation from
 - Correct exit-code mapping.
 - Operational cycle wrapper.
 - S.M.A.R.T. checker.
-- Detection of disk risk without relying only on overall SMART `PASSED`.
+- Detection of disk risk without relying only on overall SMART PASSED.
 - Reduction of cron log noise.
 - Local risk register for known hardware issue.
 
