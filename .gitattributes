@@ -1,5 +1,8 @@
+# SentinelOps line-ending policy
 * text=auto
+
 *.sh text eol=lf
 *.example text eol=lf
-examples/logrotate.d/* text eol=lf
 *.md text eol=lf
+*.conf text eol=lf
+examples/logrotate.d/* text eol=lf
